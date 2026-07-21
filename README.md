@@ -160,6 +160,8 @@ Każdy ruchomy element jest opakowany w `E(id, kotwicaX, kotwicaY, fn)`. Ta funk
 2. przechwytuje wszystko, co `fn()` narysuje, i liczy z tego obrys w układzie ekranu — dzięki temu trafienie kursorem działa też dla tekstu obróconego o 90° albo przekrzywionej naklejki,
 3. dopisuje obrys do tablicy `HIT`, po której idzie test trafienia od wierzchu w dół.
 
+Ważne: **wszystko, co należy do elementu, musi trafić do wnętrza `E()`** — biała podkładka pod kadrem, obwódka, akcentowa kreska pod hasłem. Rysunek zostawiony na zewnątrz nie przesunie się razem z elementem i po przeciągnięciu zostanie w starym miejscu jako pusty prostokąt. Do zgłaszania obrysu takiej dekoracji służy `markRect()`.
+
 Nowy element robisz przez opakowanie rysowania:
 
 ```js

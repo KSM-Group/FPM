@@ -599,8 +599,27 @@ function drawPendingFg(){
   const f = PENDING_FG; PENDING_FG = null;
   photo(S.cut, f.x, f.y, f.w, f.h, {zoom:S.zoom, ox:S.ox, oy:S.oy, noFill:true});
 }
-const thumbA = (x,y,w,h,o) => { if(S.imgA) E('kadr-A',x,y,()=>photo(S.imgA,x,y,w,h,{zoom:1.05,...o})); };
-const thumbB = (x,y,w,h,o) => { if(S.imgB) E('kadr-B',x,y,()=>photo(S.imgB,x,y,w,h,{zoom:1.05,...o})); };
+/* Kadr poboczny razem z całą oprawą: białą podkładką i obwódką.
+   Wszystko idzie wewnątrz E(), bo inaczej po przesunięciu zdjęcia
+   oprawa zostawałaby na starym miejscu jako pusty prostokąt. */
+function drawThumb(img, x, y, w, h, o){
+  o = o || {};
+  if(o.pad){
+    const p = o.pad;
+    ctx.fillStyle = o.padColor || '#fff';
+    if(o.circle){ ctx.beginPath(); ctx.arc(x+w/2, y+h/2, Math.min(w,h)/2+p, 0, 7); ctx.fill(); }
+    else ctx.fillRect(x-p, y-p, w+2*p, h+2*p);
+    markRect(x-p, y-p, w+2*p, h+2*p);
+  }
+  photo(img, x, y, w, h, {zoom:1.05, ...o});
+  if(o.ring){
+    ctx.strokeStyle = o.ring; ctx.lineWidth = o.ringW || 4;
+    if(o.circle){ ctx.beginPath(); ctx.arc(x+w/2, y+h/2, Math.min(w,h)/2, 0, 7); ctx.stroke(); }
+    else ctx.strokeRect(x, y, w, h);
+  }
+}
+const thumbA = (x,y,w,h,o) => { if(S.imgA) E('kadr-A',x,y,()=>drawThumb(S.imgA,x,y,w,h,o)); };
+const thumbB = (x,y,w,h,o) => { if(S.imgB) E('kadr-B',x,y,()=>drawThumb(S.imgB,x,y,w,h,o)); };
 
 function scrimTop(h,s){
   const g=ctx.createLinearGradient(0,0,0,h);
@@ -670,7 +689,7 @@ function archFullbleed(sp){
 
   if(sp.thumbs){
     const d=160;
-    thumbA(M,H-560,d,d,{circle:true}); thumbB(M+d+20,H-560,d,d,{circle:true});
+    thumbA(M,H-560,d,d,{circle:true,ring:P.a}); thumbB(M+d+20,H-560,d,d,{circle:true,ring:P.a});
   }
   const ns=fitSize(S.name,{family:sp.nf,weight:sp.nw,italic:sp.ni,upper:sp.nu},W-2*M-30,150*k,50);
   E('nazwisko', W/2, H-245, ()=>text(S.name,{x:W/2,y:H-245,size:ns,family:sp.nf,weight:sp.nw,italic:sp.ni,upper:sp.nu,color:P.a,align:'center'}));
@@ -769,9 +788,7 @@ function archTabloid(sp){
     });
   }
   const sz=166;
-  if(S.imgA){ ctx.fillStyle='#fff'; ctx.fillRect(M-6,H-616,sz+12,sz+12); }
-  if(S.imgB){ ctx.fillStyle='#fff'; ctx.fillRect(M+sz+18,H-616,sz+12,sz+12); }
-  thumbA(M,H-610,sz,sz); thumbB(M+sz+24,H-610,sz,sz);
+  thumbA(M,H-610,sz,sz,{pad:6}); thumbB(M+sz+24,H-610,sz,sz,{pad:6});
 
   const ns=fitSize(S.name,{family:sp.nf,weight:sp.nw,upper:true,ls:-1},W-2*M,140*k,46);
   E('nazwisko', M, H-200, ()=>text(S.name,{x:M,y:H-200,size:ns,family:sp.nf,weight:sp.nw,color:'#fff',upper:true,ls:-1}));
@@ -831,8 +848,11 @@ function archSplit(sp){
 
   const tx = right?M:W*0.62, tw = right?W*0.34:W-W*0.62-M;
   const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},tw+60,126,40);
-  E('tytuł', tx, 126, ()=>text(S.masthead,{x:tx,y:126,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:fg}));
-  rule(tx,148,200,P.a,4);
+  E('tytuł', tx, 126, ()=>{
+    const b = text(S.masthead,{x:tx,y:126,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:fg});
+    rule(tx,148,200,P.a,4); markRect(tx,148,200,4);
+    return b;
+  });
   E('stopka', tx, 186, ()=>text(`${S.sub}  ·  ${S.issue}  ·  ${S.date}`,{x:tx,y:186,size:15*k,family:'Oswald',weight:300,ls:4,color:mid,upper:true,maxW:tw}));
 
   let y=280;
@@ -1062,8 +1082,11 @@ function archModa(sp){
   let hy = H-360;
   if(hero){
     const hs = fitBlock(hero.t,{family:sp.mf,weight:sp.hw||400,italic:true},620*k,66*k,26,3);
-    hy = E('line-'+hero.i, M, H-360, ()=>text(hero.t,{x:M,y:H-360,size:hs,lh:hs*1.06,family:sp.mf,weight:sp.hw||400,italic:true,color:ink,maxW:620*k}));
-    rule(M, hy+20, 90, P.a, 3);
+    hy = E('line-'+hero.i, M, H-360, ()=>{
+      const b = text(hero.t,{x:M,y:H-360,size:hs,lh:hs*1.06,family:sp.mf,weight:sp.hw||400,italic:true,color:ink,maxW:620*k});
+      rule(M, b+20, 90, P.a, 3); markRect(M, b+20, 90, 3);
+      return b;
+    });
   }
   const ns = fitSize(S.name,{family:sp.sans,weight:700,upper:true,ls:6},W-2*M,34*k,16);
   E('nazwisko', W-M, H-150, ()=>text(S.name,{x:W-M,y:H-150,size:ns,family:sp.sans,weight:700,ls:6,upper:true,color:ink,align:'right'}));
@@ -1085,8 +1108,11 @@ function archEditorial(sp){
 
   const ns = fitBlock(S.name,{family:sp.mf,weight:sp.nw||400,italic:sp.ni},W-2*M-60,110*k,40,2);
   let y = E('nazwisko', W/2, H-330, ()=>text(S.name,{x:W/2,y:H-330,size:ns,lh:ns*0.98,family:sp.mf,weight:sp.nw||400,italic:sp.ni,color:'#fff',align:'center',maxW:W-2*M-60}));
-  E('podpis', W/2, y+34, ()=>text(S.tagline,{x:W/2,y:y+34,size:15*k,family:sp.sans,weight:500,ls:9,color:P.b,align:'center',upper:true,maxW:W-2*M}));
-  rule(W/2-40, y+62, 80, P.a, 2);
+  E('podpis', W/2, y+34, ()=>{
+    const b = text(S.tagline,{x:W/2,y:y+34,size:15*k,family:sp.sans,weight:500,ls:9,color:P.b,align:'center',upper:true,maxW:W-2*M});
+    rule(W/2-40, b+16, 80, P.a, 2); markRect(W/2-40, b+16, 80, 2);
+    return b;
+  });
 
   const one = q.next();
   if(one) E('line-'+one.i, W/2, H-150, ()=>text(one.t,{x:W/2,y:H-150,size:19*k,lh:26*k,family:sp.sans,weight:300,ls:4,color:'#fff',align:'center',upper:true,maxW:W-300}));
