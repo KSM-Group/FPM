@@ -107,6 +107,7 @@
       <button id="btnUndo" class="ghost" title="Cofnij (Ctrl+Z)">↺</button>
       <button id="btnRedo" class="ghost" title="Ponów (Ctrl+Shift+Z)">↻</button>
       <button id="btnRandom" class="ghost">Losuj</button>
+      <button id="btnMock" class="ghost">Podgląd w ramce</button>
       <button id="btnPng" class="primary">Pobierz PNG</button>
     </div>
   </div>
@@ -123,6 +124,10 @@
         <p class="hint" id="tplDesc"></p>
         <label>Kolor przewodni</label>
         <div class="swatches" id="pals"></div>
+        <div class="grid2">
+          <div><label>Motyw zdobniczy</label><select id="motif"></select></div>
+          <div><label>Siła motywu</label><input type="range" id="motifStr" min="15" max="100" value="70"></div>
+        </div>
         <div class="grid2">
           <div><label>Rozmiar tekstu</label><input type="range" id="scale" min="80" max="125" value="100"></div>
           <div><label>Przyciemnienie zdjęcia</label><input type="range" id="scrim" min="0" max="100" value="55"></div>
@@ -256,8 +261,6 @@
   </div>
 
   <div class="stage">
-    <div class="canvas-shell"><canvas id="cv" width="1240" height="1748" aria-label="Podgląd okładki"></canvas></div>
-
     <div class="editbar" id="editbar">
       <h3 id="editTitle">Element</h3>
       <div class="fields">
@@ -300,8 +303,9 @@
       <canvas id="mockup" width="1400" height="1050" aria-label="Podgląd okładki w oprawie"></canvas>
     </div>
 
+    <div class="canvas-shell"><canvas id="cv" width="1240" height="1748" aria-label="Podgląd okładki"></canvas></div>
+
     <div class="stage-foot">
-      <button id="btnMock" class="ghost">Podgląd w ramce</button>
       <button id="btnPng2" class="primary">Pobierz PNG</button>
       <button id="btnJpg" class="ghost">JPG</button>
       <button id="btnHi" class="ghost">PNG 2× (druk)</button>
@@ -359,7 +363,8 @@ const S = {
   ],
   imgMain:null, imgA:null, imgB:null,
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
-  cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur', fast:false
+  cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur',
+  motif:'none', motifStr:70, fast:false
 };
 
 /* ---------- warstwa edycji ---------- */
@@ -1000,8 +1005,146 @@ function archZine(sp){
   if(sp.barcode) barcodeAt(W-M-150,H-70,130,34);
 }
 
+/* 11. bilet / wejściówka */
+function archTicket(sp){
+  const P=P_(), M=46, k=sc(), q=makeQueue(), ink=P.ink;
+  ctx.fillStyle=sp.dark?'#15130F':'#CFC8BC'; ctx.fillRect(0,0,W,H);
+  const tx=M, ty=M, tw=W-2*M, th=H-2*M;
+  ctx.fillStyle=P.paper; ctx.fillRect(tx,ty,tw,th);
+  const stub=230;
+  /* perforacja */
+  ctx.fillStyle=ink+'55';
+  for(let y=ty+18; y<ty+th-18; y+=22) ctx.fillRect(tx+stub, y, 2, 11);
+  ctx.fillStyle=sp.dark?'#15130F':'#CFC8BC';
+  ctx.beginPath(); ctx.arc(tx+stub+1, ty, 17, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(tx+stub+1, ty+th, 17, 0, 7); ctx.fill();
+
+  /* odcinek kontrolny */
+  E('stopka', tx+stub*0.42, ty+th-60, ()=>{
+    ctx.save(); ctx.translate(tx+stub*0.42, ty+th-60); ctx.rotate(-Math.PI/2);
+    text(`${S.issue} · ${S.date} · ${S.price}`, {x:0,y:0,size:19*k,family:'Oswald',weight:500,ls:5,color:ink,upper:true});
+    ctx.restore();
+  });
+  E('dopisek', tx+stub*0.75, ty+th-60, ()=>{
+    ctx.save(); ctx.translate(tx+stub*0.75, ty+th-60); ctx.rotate(-Math.PI/2);
+    text(S.sub, {x:0,y:0,size:16*k,family:'Oswald',weight:300,ls:6,color:P.a,upper:true});
+    ctx.restore();
+  });
+  const mx=tx+stub+50, mw=tw-stub-100;
+  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},mw,sp.msz,40);
+  E('tytuł', mx, ty+96, ()=>text(S.masthead,{x:mx,y:ty+96,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:ink}));
+  rule(mx, ty+120, mw, P.a, 4);
+  mainPhoto(mx, ty+150, mw, 720);
+
+  const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:sp.nu},mw,104*k,38,2);
+  let y = E('nazwisko', mx, ty+960, ()=>text(S.name,{x:mx,y:ty+960,size:ns,lh:ns*0.96,family:sp.nf,weight:sp.nw,upper:sp.nu,color:ink,maxW:mw}));
+  y = E('podpis', mx, y+18, ()=>text(S.tagline,{x:mx,y:y+18,size:24*k,family:'Oswald',weight:300,ls:4,color:P.a,upper:true,maxW:mw}))+30;
+  rule(mx, y, mw, ink+'33', 1); y+=34;
+  /* wiersze z kropkowanym wypełnieniem, jak na wejściówce */
+  column(q,{x:mx,y,yMax:ty+th-130,maxW:mw,size:19*k,lh:24*k,family:'Inter',weight:500,color:ink,gap:20,
+    marker:(x,yy)=>{ ctx.fillStyle=ink+'22'; for(let d=x; d<x+mw; d+=9) ctx.fillRect(d, yy+7, 3, 2); }});
+  reseed(S.masthead+S.name);
+  if(sp.barcode) barcodeAt(W-M-190, H-M-70, 160, 40);
+}
+
+/* 12. karta kolekcjonerska */
+function archCard(sp){
+  const P=P_(), M=52, k=sc(), q=makeQueue();
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,P.a); g.addColorStop(1,P.ink);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=P.paper; ctx.fillRect(M,M,W-2*M,H-2*M);
+  ctx.strokeStyle=P.a; ctx.lineWidth=6; ctx.strokeRect(M+16,M+16,W-2*M-32,H-2*M-32);
+
+  const ix=M+40, iw=W-2*M-80;
+  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true},iw-160,sp.msz,32);
+  E('tytuł', ix, M+96, ()=>text(S.masthead,{x:ix,y:M+96,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true,color:P.ink}));
+  /* emblemat z inicjałami */
+  const ini=S.name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('');
+  ctx.beginPath(); ctx.arc(W-M-92, M+82, 52, 0, 7); ctx.fillStyle=P.a; ctx.fill();
+  text(ini,{x:W-M-92,y:M+98,size:44,family:'Anton',weight:400,color:'#fff',align:'center',upper:true});
+
+  mainPhoto(ix, M+130, iw, 780);
+  ctx.strokeStyle=P.ink+'22'; ctx.lineWidth=2; ctx.strokeRect(ix, M+130, iw, 780);
+
+  ctx.fillStyle=P.a; ctx.fillRect(ix, M+930, iw, 96);
+  const ns=fitSize(S.name,{family:sp.nf,weight:sp.nw,upper:true},iw-40,72*k,30);
+  E('nazwisko', W/2, M+996, ()=>text(S.name,{x:W/2,y:M+996,size:ns,family:sp.nf,weight:sp.nw,upper:true,color:'#fff',align:'center'}));
+  E('podpis', W/2, M+1064, ()=>text(S.tagline,{x:W/2,y:M+1064,size:21*k,family:'Oswald',weight:500,ls:4,color:P.ink,align:'center',upper:true,maxW:iw}));
+
+  /* tabela osiągnięć — naprzemienne pasy */
+  let y=M+1112, i=0;
+  while(q.peek() && y < H-M-120){
+    const it=q.next();
+    if(i%2===0){ ctx.fillStyle=P.ink+'0D'; ctx.fillRect(ix, y-4, iw, 46); }
+    const yy=y+26;
+    E('line-'+it.i, ix+14, yy, ()=>text(it.t,{x:ix+14,y:yy,size:18*k,family:'Inter',weight:500,color:P.ink,maxW:iw-28}));
+    y+=48; i++;
+  }
+  reseed(S.masthead+S.name);
+  if(sp.barcode) barcodeAt(W/2-70, H-M-72, 140, 36);
+}
+
+/* 13. okładka płyty — hasła jako lista utworów */
+function archAlbum(sp){
+  const P=P_(), M=70, k=sc(), q=makeQueue();
+  ctx.fillStyle=sp.light?P.paper:'#0C0C0E'; ctx.fillRect(0,0,W,H);
+  const ink=sp.light?P.ink:'#F2F0EA', mid=sp.light?'#6A6258':'#9A9A9F';
+  E('dopisek', M, 96, ()=>text(S.sub,{x:M,y:96,size:16*k,family:'Oswald',weight:300,ls:7,color:P.a,upper:true}));
+  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},W-2*M,sp.msz,40);
+  E('tytuł', M, 160, ()=>text(S.masthead,{x:M,y:160,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:ink}));
+
+  const sq=W-2*M;
+  mainPhoto(M, 200, sq, sq);
+  ctx.strokeStyle=ink+'22'; ctx.lineWidth=2; ctx.strokeRect(M,200,sq,sq);
+
+  const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni},W-2*M,86*k,32,2);
+  let y = E('nazwisko', M, 200+sq+86, ()=>text(S.name,{x:M,y:200+sq+86,size:ns,lh:ns*0.98,family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni,color:ink,maxW:W-2*M}));
+  E('podpis', M, y+14, ()=>text(S.tagline,{x:M,y:y+14,size:20*k,family:'Oswald',weight:300,ls:5,color:P.a,upper:true,maxW:W-2*M}));
+  rule(M, y+40, W-2*M, ink+'2A', 1);
+
+  /* lista utworów w dwóch kolumnach */
+  const cw=(W-2*M-40)/2;
+  let n=1, col=0, ty=y+82;
+  while(q.peek()){
+    const it=q.next(), x=M+col*(cw+40), yy=ty;
+    text(String(n).padStart(2,'0'),{x,y:yy,size:15*k,family:'Oswald',weight:500,ls:2,color:P.a});
+    E('line-'+it.i, x+34, yy, ()=>text(it.t,{x:x+34,y:yy,size:17*k,family:'Inter',weight:400,color:mid,maxW:cw-34}));
+    n++; ty+=30;
+    if(ty > H-120){ ty=y+82; col++; if(col>1) break; }
+  }
+  E('stopka', W-M, H-52, ()=>text(`${S.issue} · ${S.date} · ${S.price}`,{x:W-M,y:H-52,size:14*k,family:'Oswald',weight:300,ls:4,color:mid,align:'right',upper:true}));
+  reseed(S.masthead+S.name);
+  if(sp.barcode) barcodeAt(M, H-84, 130, 34);
+}
+
+/* 14. plakat filmowy z blokiem twórców */
+function archCredits(sp){
+  const P=P_(), M=58, k=sc(), q=makeQueue();
+  mainPhoto(0,0,W,H);
+  scrimTop(340, S.scrim/100*0.8); scrimBottom(940, S.scrim/100);
+  E('dopisek', W/2, 130, ()=>text(S.sub,{x:W/2,y:130,size:18*k,family:'Oswald',weight:300,ls:9,color:'#ffffffcc',align:'center',upper:true}));
+  const ms=fitSize(S.masthead,{family:'Oswald',weight:300,ls:8,upper:true},W-2*M,26*k,14);
+  E('tytuł', W/2, H-560, ()=>text(S.masthead,{x:W/2,y:H-560,size:ms,family:'Oswald',weight:300,ls:8,color:P.b,align:'center',upper:true}));
+
+  const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:true,ls:sp.mls},W-2*M,150*k,44,2);
+  let y = E('nazwisko', W/2, H-420, ()=>text(S.name,{x:W/2,y:H-420,size:ns,lh:ns*0.94,family:sp.nf,weight:sp.nw,upper:true,ls:sp.mls,color:'#fff',align:'center',maxW:W-2*M}));
+  E('podpis', W/2, y+34, ()=>text(S.tagline,{x:W/2,y:y+34,size:23*k,family:'Oswald',weight:300,ls:6,color:P.b,align:'center',upper:true,maxW:W-2*M}));
+
+  /* blok twórców: zwężone wersaliki, jak na prawdziwym plakacie */
+  const block=q.rest().map(o=>o.t).join('  ·  ');
+  if(block){
+    const first=q.peek();
+    E('line-'+(first?first.i:0), W/2, H-230, ()=>text(block,{x:W/2,y:H-230,size:15*k,lh:21*k,family:'Barlow Condensed',weight:600,ls:1,color:'#ffffffcc',align:'center',upper:true,maxW:W-2*M-40}));
+  }
+  rule(W/2-90, H-120, 180, P.a, 3);
+  E('stopka', W/2, H-72, ()=>text(`${S.date}  ·  ${S.issue}  ·  ${S.price}`,{x:W/2,y:H-72,size:16*k,family:'Oswald',weight:500,ls:5,color:'#fff',align:'center',upper:true}));
+  reseed(S.masthead+S.name);
+}
+
 const ARCH = {fullbleed:archFullbleed, press:archPress, tabloid:archTabloid, minimal:archMinimal,
-              split:archSplit, poster:archPoster, frame:archFrame, band:archBandSide, grid:archGrid, zine:archZine};
+              split:archSplit, poster:archPoster, frame:archFrame, band:archBandSide, grid:archGrid, zine:archZine,
+              ticket:archTicket, card:archCard, album:archAlbum, credits:archCredits};
 
 /* =========================================================================
    SZABLONY
@@ -1076,9 +1219,157 @@ const TEMPLATES = [
 
   T('zin-01','Zin','Zin','zine',{mf:'Archivo Black',mw:400,mu:true,mls:-2,msz:150,lf:'Space Grotesk',lw:700,nf:'Archivo Black',nw:400,nu:true,pal:3}),
   T('zin-02','Wycinanka','Zin','zine',{mf:'Anton',mw:400,mu:true,msz:160,tilt:0.04,tilt2:-0.03,lf:'Anton',lw:400,nf:'Anton',nw:400,nu:true,dark:true,pal:6}),
-  T('zin-03','Kolaż','Zin','zine',{mf:'Bebas Neue',mw:400,mls:4,msz:170,tilt:-0.06,lf:'Barlow Condensed',lw:700,nf:'Bebas Neue',nw:400,nu:true,pal:7})
+  T('zin-03','Kolaż','Zin','zine',{mf:'Bebas Neue',mw:400,mls:4,msz:170,tilt:-0.06,lf:'Barlow Condensed',lw:700,nf:'Bebas Neue',nw:400,nu:true,pal:7}),
+
+  /* --- Bilet --- */
+  T('tck-01','Wejściówka','Bilet','ticket',{mf:'Oswald',mw:700,mu:true,mls:4,msz:76,nf:'Anton',nw:400,nu:true,pal:0}),
+  T('tck-02','Peron','Bilet','ticket',{mf:'Barlow Condensed',mw:700,mu:true,mls:6,msz:80,nf:'Barlow Condensed',nw:700,nu:true,dark:true,pal:5}),
+  T('tck-03','Karnet','Bilet','ticket',{mf:'Bebas Neue',mw:400,mls:6,msz:88,nf:'Bebas Neue',nw:400,nu:true,pal:4}),
+  T('tck-04','Zaproszenie','Bilet','ticket',{mf:'Cormorant Garamond',mw:600,mu:true,mls:12,msz:70,nf:'Cormorant Garamond',nw:600,ni:true,motif:'deco',pal:2}),
+
+  /* --- Karta --- */
+  T('crd-01','Karta zawodnika','Karta','card',{mf:'Anton',mw:400,mls:-1,msz:64,nf:'Anton',nw:400,motif:'paski',pal:1}),
+  T('crd-02','Odznaka','Karta','card',{mf:'Archivo Black',mw:400,mls:-1,msz:58,nf:'Archivo Black',nw:400,motif:'gwiazdy',pal:0}),
+  T('crd-03','Legitymacja','Karta','card',{mf:'Space Grotesk',mw:700,mls:2,msz:56,nf:'Space Grotesk',nw:700,motif:'siatka',pal:8}),
+  T('crd-04','Trofeum','Karta','card',{mf:'Playfair Display',mw:900,mls:-1,msz:62,nf:'Anton',nw:400,motif:'laur',pal:2}),
+
+  /* --- Płyta --- */
+  T('alb-01','Debiut','Płyta','album',{mf:'Space Grotesk',mw:700,mu:true,mls:6,msz:52,nf:'Anton',nw:400,nu:true,pal:3}),
+  T('alb-02','Winyl','Płyta','album',{mf:'Oswald',mw:300,mu:true,mls:10,msz:46,nf:'Playfair Display',nw:900,ni:true,motif:'halftone',pal:9}),
+  T('alb-03','Koncert','Płyta','album',{mf:'Anton',mw:400,mu:true,mls:-1,msz:70,nf:'Anton',nw:400,nu:true,pal:6}),
+  T('alb-04','Składanka','Płyta','album',{mf:'Cormorant Garamond',mw:600,mu:true,mls:14,msz:48,nf:'Cormorant Garamond',nw:600,ni:true,light:true,pal:5}),
+
+  /* --- Kino --- */
+  T('kin-01','Premiera kinowa','Kino','credits',{nf:'Anton',nw:400,mls:-2,pal:0}),
+  T('kin-02','Thriller','Kino','credits',{nf:'Archivo Black',nw:400,mls:-1,pal:5}),
+  T('kin-03','Komedia','Kino','credits',{nf:'Bebas Neue',nw:400,mls:2,motif:'konfetti',pal:6}),
+  T('kin-04','Dokument','Kino','credits',{nf:'Barlow Condensed',nw:700,mls:4,pal:8})
 ];
 const findTpl = id => TEMPLATES.find(t=>t.id===id) || TEMPLATES[0];
+
+/* =========================================================================
+   MOTYWY
+   Warstwa zdobnicza rysowana na gotowym układzie, więc działa z każdym
+   szablonem: 69 układów × 10 motywów to zauważalnie więcej niż 69 okładek.
+   ========================================================================= */
+const MOTIFS = [
+  {id:'none',     label:'bez motywu'},
+  {id:'konfetti', label:'konfetti'},
+  {id:'deco',     label:'art déco'},
+  {id:'halftone', label:'raster drukarski'},
+  {id:'paski',    label:'ukośne paski'},
+  {id:'tasma',    label:'taśma klejąca'},
+  {id:'pieczec',  label:'pieczęć z datą'},
+  {id:'laur',     label:'wieniec laurowy'},
+  {id:'gwiazdy',  label:'gwiazdki'},
+  {id:'siatka',   label:'siatka techniczna'}
+];
+function drawMotif(){
+  const kind = S.motif;
+  if(!kind || kind==='none') return;
+  const P = P_(), A = (S.motifStr||70)/100;
+  reseed(kind + S.masthead + S.tpl);
+  ctx.save();
+
+  if(kind==='konfetti'){
+    for(let i=0;i<130;i++){
+      const x=srnd()*W, t=srnd();
+      const y = t<0.5 ? srnd()*H*0.34 : H - srnd()*H*0.30;
+      const w=6+srnd()*16, h=4+srnd()*9;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(srnd()*6.3);
+      ctx.globalAlpha = A*(0.35+srnd()*0.55);
+      ctx.fillStyle = [P.a, P.b, '#ffffff'][Math.floor(srnd()*3)];
+      ctx.fillRect(-w/2,-h/2,w,h);
+      ctx.restore();
+    }
+  }
+  else if(kind==='deco'){
+    ctx.globalAlpha=A*0.9; ctx.strokeStyle=P.b; ctx.lineWidth=3;
+    ctx.strokeRect(26,26,W-52,H-52);
+    ctx.lineWidth=1; ctx.strokeRect(38,38,W-76,H-76);
+    for(const [cx,cy,sx,sy] of [[26,26,1,1],[W-26,26,-1,1],[26,H-26,1,-1],[W-26,H-26,-1,-1]]){
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(sx,sy);
+      ctx.strokeStyle=P.b; ctx.lineWidth=3;
+      for(let i=1;i<=6;i++){ ctx.beginPath(); ctx.moveTo(0, i*22); ctx.lineTo(i*22, 0); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  else if(kind==='halftone'){
+    ctx.globalAlpha=A*0.5; ctx.fillStyle=P.a;
+    for(let y=0;y<H;y+=18) for(let x=0;x<W;x+=18){
+      const t = 1 - y/H;                       // gęstnieje ku górze
+      const r = Math.max(0, t*6.5 - srnd()*1.5);
+      if(r>0.4){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+    }
+  }
+  else if(kind==='paski'){
+    ctx.globalAlpha=A*0.28; ctx.fillStyle=P.a;
+    ctx.save(); ctx.translate(W/2,H/2); ctx.rotate(-0.5); ctx.translate(-W,-H);
+    for(let x=0;x<W*2.6;x+=54) ctx.fillRect(x,0,22,H*2.4);
+    ctx.restore();
+  }
+  else if(kind==='tasma'){
+    const tape=(x,y,w,h,rot)=>{
+      ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+      ctx.globalAlpha=A*0.55; ctx.fillStyle='#F3E6C4'; ctx.fillRect(-w/2,-h/2,w,h);
+      ctx.globalAlpha=A*0.22; ctx.fillStyle='#000';
+      ctx.fillRect(-w/2,-h/2,w,3); ctx.fillRect(-w/2,h/2-3,w,3);
+      ctx.restore();
+    };
+    tape(70,64,220,54,-0.62); tape(W-70,64,220,54,0.62);
+    tape(70,H-64,220,54,0.62); tape(W-70,H-64,220,54,-0.62);
+  }
+  else if(kind==='pieczec'){
+    ctx.save(); ctx.translate(W-190, 250); ctx.rotate(-0.26);
+    ctx.globalAlpha=A*0.85; ctx.strokeStyle=P.a; ctx.lineWidth=6;
+    ctx.beginPath(); ctx.arc(0,0,104,0,7); ctx.stroke();
+    ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,88,0,7); ctx.stroke();
+    ctx.fillStyle=P.a;
+    text(S.date,{x:0,y:8,size:30,family:'Oswald',weight:700,color:P.a,align:'center',ls:1});
+    text('egzemplarz',{x:0,y:-38,size:15,family:'Oswald',weight:500,color:P.a,align:'center',ls:4,upper:true});
+    text('jedyny',{x:0,y:52,size:15,family:'Oswald',weight:500,color:P.a,align:'center',ls:4,upper:true});
+    ctx.restore();
+  }
+  else if(kind==='laur'){
+    const branch=(dir)=>{
+      ctx.save(); ctx.translate(W/2, H-150); ctx.scale(dir,1);
+      ctx.globalAlpha=A*0.8; ctx.fillStyle=P.b;
+      for(let i=0;i<11;i++){
+        const t=i/11, x=-90-t*130, y=-t*150;
+        ctx.save(); ctx.translate(x,y); ctx.rotate(-0.5 - t*0.7);
+        ctx.beginPath(); ctx.ellipse(0,0,25-t*10,10-t*3,0,0,7); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    };
+    branch(1); branch(-1);
+  }
+  else if(kind==='gwiazdy'){
+    ctx.globalAlpha=A*0.75; ctx.fillStyle=P.b;
+    for(let i=0;i<46;i++){
+      const x=srnd()*W, y=srnd()*H, r=4+srnd()*11;
+      ctx.save(); ctx.translate(x,y);
+      ctx.beginPath();
+      for(let p=0;p<8;p++){
+        const a=p*Math.PI/4, rad=p%2?r*0.34:r;
+        p?ctx.lineTo(Math.cos(a)*rad,Math.sin(a)*rad):ctx.moveTo(Math.cos(a)*rad,Math.sin(a)*rad);
+      }
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+  }
+  else if(kind==='siatka'){
+    ctx.globalAlpha=A*0.30; ctx.strokeStyle=P.b; ctx.lineWidth=1;
+    for(let x=0;x<=W;x+=62){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<=H;y+=62){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.globalAlpha=A*0.8; ctx.strokeStyle=P.a; ctx.lineWidth=2;
+    for(const [x,y] of [[62,62],[W-62,62],[62,H-62],[W-62,H-62]]){
+      ctx.beginPath(); ctx.moveTo(x-16,y); ctx.lineTo(x+16,y);
+      ctx.moveTo(x,y-16); ctx.lineTo(x,y+16); ctx.stroke();
+    }
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
 
 /* ---------- rysowanie ---------- */
 function render(){
@@ -1090,6 +1381,7 @@ function render(){
   ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H);
   (ARCH[sp.arch]||archFullbleed)(sp);
   drawPendingFg();               // gdyby szablon nie rysował winiety
+  drawMotif();
   reseed(sp.id+S.masthead);
   grain();
   ctx.restore();
@@ -1476,7 +1768,11 @@ const GROUP_TAGS = {
   Ramka:   ['prezent','pamiątka','ślub','chrzciny','dyplom','podziękowanie','ramka','na ścianę'],
   Pas:     ['nowoczesnie','design','portret','architektura','pionowo','minimalizm'],
   Siatka:  ['rodzina','wakacje','podsumowanie roku','zjazd','klasa','drużyna','grupa'],
-  Zin:     ['młodzieżowo','nastolatek','kolaż','muzyka','zabawa','szkoła','studia','koncert']
+  Zin:     ['młodzieżowo','nastolatek','kolaż','muzyka','zabawa','szkoła','studia','koncert'],
+  Bilet:   ['zaproszenie','wesele','impreza','bilet','wydarzenie','urodziny','karnet','wejściówka'],
+  Karta:   ['sport','drużyna','klub','odznaka','trofeum','legitymacja','dziecko','zawody'],
+  Płyta:   ['muzyka','koncert','zespół','płyta','lista utworów','prezent dla melomana'],
+  Kino:    ['film','plakat','premiera','kino','dramat','komedia','wieczór filmowy']
 };
 const EXTRA_TAGS = {
   'splendor-05':['premiera','debiut'], 'splendor-06':['ciepło','rodzice','mama'],
@@ -1520,6 +1816,7 @@ function selectTpl(id){
   for(const k of Object.keys(OVR)) delete OVR[k];   // nowy układ = czysta karta
   SEL=null; $('editbar').classList.remove('on');
   if(t.pal!==undefined){ S.pal=t.pal; syncPals(); }
+  S.motif = t.motif || 'none'; $('motif').value = S.motif;
   [...$('gallery').children].forEach(c=>c.dataset && c.setAttribute('aria-pressed', String(c.dataset.id===id)));
   $('tplDesc').textContent = `${t.label} · grupa ${t.group} · pasuje na: ${t.tags.slice(0,5).join(', ')}`;
   $('counter').textContent = `${TEMPLATES.findIndex(x=>x.id===id)+1} / ${TEMPLATES.length}`;
@@ -1551,6 +1848,7 @@ PALETTES.forEach((p,i)=>{
   b.onclick=()=>{ S.pal=i; syncPals(); paint(); pushHistory(); };
   palsEl.appendChild(b);
 });
+$('motif').innerHTML = MOTIFS.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
 function syncPals(){ [...palsEl.children].forEach((c,j)=>c.setAttribute('aria-pressed',String(j===S.pal))); }
 
 /* --- sekcje --- */
@@ -1570,9 +1868,10 @@ function readForm(){
   S.zoom=$('zoom').value/100; S.ox=+$('ox').value; S.oy=+$('oy').value;
   S.bri=+$('bri').value; S.con=+$('con').value; S.sat=+$('sat').value;
   S.grain=$('grain').checked; S.duo=$('duo').checked; S.fitBg=$('fitBg').value;
+  S.motif=$('motif').value; S.motifStr=+$('motifStr').value;
   S.scale=+$('scale').value; S.scrim=+$('scrim').value;
 }
-['masthead','sub','issue','date','price','name','tagline','zoom','ox','oy','bri','con','sat','grain','duo','fitBg','scale','scrim']
+['masthead','sub','issue','date','price','name','tagline','zoom','ox','oy','bri','con','sat','grain','duo','fitBg','motif','motifStr','scale','scrim']
   .forEach(id=>{ const el=$(id); if(!el) return;
     el.addEventListener('input',()=>{readForm();paint();pushLater();});
     el.addEventListener('change',()=>{readForm();paint();pushLater();}); });
@@ -1707,6 +2006,7 @@ function snapshot(){
     name:S.name, tagline:S.tagline, lines:S.lines,
     zoom:S.zoom, ox:S.ox, oy:S.oy, bri:S.bri, con:S.con, sat:S.sat,
     grain:S.grain, duo:S.duo, fitBg:S.fitBg, bgMode:S.bgMode, behindTitle:S.behindTitle,
+    motif:S.motif, motifStr:S.motifStr,
     ovr:OVR
   });
 }
@@ -1728,6 +2028,7 @@ function fillControls(){
   $('grain').checked = S.grain; $('duo').checked = S.duo; $('fitBg').value = S.fitBg;
   $('scale').value = S.scale; $('scrim').value = S.scrim;
   $('bgMode').value = S.bgMode; $('behindTitle').checked = S.behindTitle;
+  $('motif').value = S.motif; $('motifStr').value = S.motifStr;
 }
 function restoreState(json){
   const d = JSON.parse(json);
@@ -1839,9 +2140,10 @@ function renderMockup(){
 }
 $('btnMock').onclick = ()=>{
   const wrap = $('mockWrap');
-  wrap.classList.toggle('on');
-  $('btnMock').textContent = wrap.classList.contains('on') ? 'Ukryj podgląd' : 'Podgląd w ramce';
+  const on = wrap.classList.toggle('on');
+  $('btnMock').textContent = on ? 'Ukryj oprawę' : 'Podgląd w ramce';
   renderMockup();
+  if(on) wrap.scrollIntoView({block:'nearest', behavior:'smooth'});
 };
 $('mkScene').onchange = renderMockup;
 $('mkFrame').onchange = renderMockup;

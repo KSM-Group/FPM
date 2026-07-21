@@ -13,10 +13,11 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 - **Tytuł za osobą** — po wycięciu winieta ląduje między tłem a postacią, tak jak na prawdziwych okładkach.
 - **Żartobliwe teksty domyślne** — startowa okładka to „Legenda Osiedla" z redakcyjnym śledztwem w sprawie drugiej skarpetki. Wbudowany kreator też pisze z przymrużeniem oka.
 - **Opis → gotowa okładka**: wpisujesz kilka zdań o osobie, dostajesz komplet tytułu, nazwiska, podpisu i dziesięciu haseł. Wbudowany kreator działa bez internetu; opcjonalnie można podłączyć Claude API własnym kluczem.
-- **53 szablony** w grupach: Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin. Dziesięć kolorów przewodnich plus duoton. Przewijanie strzałkami ← →.
+- **69 szablonów** w grupach: Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin, Bilet, Karta, Płyta, Kino.
+- **10 motywów zdobniczych** nakładanych na dowolny układ: konfetti, art déco, raster drukarski, ukośne paski, taśma klejąca, pieczęć z datą, wieniec laurowy, gwiazdki, siatka techniczna. Do tego suwak siły motywu. Dziesięć kolorów przewodnich plus duoton. Przewijanie strzałkami ← →.
 - **Filtr grup zamiast wyszukiwarki** — dziesięć kafelków grup wystarcza, żeby ogarnąć 53 pozycje. Każdy szablon ma tagi z okazjami (`GROUP_TAGS` + `EXTRA_TAGS`), które podpowiadają w dymku kafelka i w opisie pod galerią, na co się nadaje.
 - **Cofanie i ponawianie** — `Ctrl/Cmd + Z` oraz `Ctrl/Cmd + Shift + Z`, plus przyciski ↺ ↻ w belce dla dotyku. Historia trzyma 60 kroków: teksty, ustawienia, wybrany szablon i wszystkie przesunięcia elementów. Zdjęcia zostają poza migawką, więc cofanie nie kasuje wgranego pliku.
-- **Podgląd w oprawie** — ta sama okładka pokazana tak, jak trafi do obdarowanego: w ramce na ścianie, w ramce na półce albo jako magazyn leżący na blacie. Cztery kolory ramy, passe-partout, odbicie w szkle i cień. Osobny plik PNG do wysłania komuś przed drukiem.
+- **Podgląd w oprawie** (przycisk „Podgląd w ramce" w górnej belce) — ta sama okładka pokazana tak, jak trafi do obdarowanego: w ramce na ścianie, w ramce na półce albo jako magazyn leżący na blacie. Cztery kolory ramy, passe-partout, odbicie w szkle i cień. Osobny plik PNG do wysłania komuś przed drukiem.
 - **Eksport**: PNG, JPG oraz PNG 2× (2480 × 3496 px, czyli A4 przy ~300 dpi). Ramka zaznaczenia nigdy nie trafia do pliku. Skrót `Ctrl/Cmd + S`.
 
 ## Uruchomienie
@@ -95,6 +96,10 @@ Szablony nie są osobnymi plikami. Jest **10 archetypów układu** — funkcji r
 | `band` | pionowy pas z tytułem obróconym o 90° |
 | `grid` | zdjęcie u góry, kolorowy blok z trzema szpaltami niżej |
 | `zine` | kolaż: przekrzywione zdjęcie i naklejki z hasłami |
+| `ticket` | bilet z odcinkiem kontrolnym, perforacją i wierszami z kropkowanym wypełnieniem |
+| `card` | karta kolekcjonerska: emblemat z inicjałami, tabliczka z nazwiskiem, tabela osiągnięć |
+| `album` | okładka płyty: kwadratowe zdjęcie, hasła jako numerowana lista utworów |
+| `credits` | plakat filmowy z blokiem twórców złożonym ze zwężonych wersalików |
 
 Nowy szablon to jedna linijka w tablicy `TEMPLATES`:
 
@@ -124,6 +129,14 @@ Wyjątek to kolaż w grupie Zin: zdjęcie jest tam obrócone we własnym układz
 Model zwraca maskę klas, ale numeracja bywa różna w zależności od wersji — raz tło to `0`, raz `255`. Zamiast przyjmować jedną konwencję, `classifyMask()` porównuje dwa punkty odniesienia: ramkę kadru (górna krawędź i boki, gdzie prawie zawsze jest tło) oraz środkowy słupek (gdzie prawie zawsze stoi człowiek). Klasa z ramki to tło, wszystko inne to pierwszy plan.
 
 Gdy obie strony wskazują tę samą klasę, model nic sensownego nie znalazł — wtedy aplikacja odmawia i mówi to wprost, zamiast wyciąć losową połowę zdjęcia.
+
+## Motywy
+
+Motyw to warstwa zdobnicza rysowana już na gotowym układzie, w `drawMotif()`, tuż przed ziarnem druku. Dzięki temu nie musi nic wiedzieć o archetypie i działa z każdym szablonem — 69 układów razy 10 motywów daje znacznie więcej kombinacji niż sama lista szablonów.
+
+Wszystkie motywy rysują się kolorami z aktywnej palety (`P.a`, `P.b`), więc nigdy nie kłócą się z resztą okładki, a suwak siły steruje przezroczystością. Szablon może mieć motyw domyślny — pole `motif` w jego konfiguracji.
+
+Nowy motyw to jedna gałąź w `drawMotif()` plus wpis w tablicy `MOTIFS`.
 
 ## Historia zmian
 
