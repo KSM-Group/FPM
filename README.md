@@ -14,7 +14,7 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 - **Żartobliwe teksty domyślne** — startowa okładka to „Legenda Osiedla" z redakcyjnym śledztwem w sprawie drugiej skarpetki. Wbudowany kreator też pisze z przymrużeniem oka.
 - **Opis → gotowa okładka**: wpisujesz kilka zdań o osobie, dostajesz komplet tytułu, nazwiska, podpisu i dziesięciu haseł. Wbudowany kreator działa bez internetu; opcjonalnie można podłączyć Claude API własnym kluczem.
 - **53 szablony** w grupach: Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin. Dziesięć kolorów przewodnich plus duoton. Przewijanie strzałkami ← →.
-- **Wyszukiwarka szuka po okazji, nie po nazwie** — „sport", „ślub", „urodziny", „emerytura", „śmieszne". Każdy szablon ma tagi (`GROUP_TAGS` + `EXTRA_TAGS`), polskie znaki są ignorowane przy porównaniu, więc „slub" znajduje to samo co „ślub". Gdy nic nie pasuje, pokazuje klikalne podpowiedzi zamiast pustej listy.
+- **Filtr grup zamiast wyszukiwarki** — dziesięć kafelków grup wystarcza, żeby ogarnąć 53 pozycje. Każdy szablon ma tagi z okazjami (`GROUP_TAGS` + `EXTRA_TAGS`), które podpowiadają w dymku kafelka i w opisie pod galerią, na co się nadaje.
 - **Eksport**: PNG, JPG oraz PNG 2× (2480 × 3496 px, czyli A4 przy ~300 dpi). Ramka zaznaczenia nigdy nie trafia do pliku. Skrót `Ctrl/Cmd + S`.
 
 ## Uruchomienie
@@ -113,7 +113,15 @@ Własny archetyp: napisz `function archMoj(sp){…}` (płótno 1240 × 1748) i d
 
 Po wycięciu tła zdjęcie główne rozpada się na dwie warstwy. `mainPhoto()` rysuje tylko tło i odkłada pierwszy plan do `PENDING_FG`. Funkcja `E()`, która opakowuje każdy ruchomy element, po narysowaniu elementu o identyfikatorze `tytuł` wywołuje `drawPendingFg()` — postać ląduje na winiecie, reszta tekstów rysuje się już po niej, czyli na wierzchu. Gdyby jakiś układ nie rysował winiety, `render()` domyka warstwę na końcu.
 
+Odkładanie działa tylko wtedy, gdy winieta faktycznie ma się dopiero narysować. W układach gazetowych tytuł idzie na samej górze, przed zdjęciem — flaga `MAST_DONE` wykrywa ten przypadek i rysuje postać od razu, zamiast wypychać ją na sam wierzch okładki, na podpisy pod zdjęciem.
+
 Wyjątek to kolaż w grupie Zin: zdjęcie jest tam obrócone we własnym układzie współrzędnych, więc pierwszy plan rysuje się od razu (`mainPhoto(..., false)`), a tytuł zostaje na wierzchu.
+
+### Biegunowość maski
+
+Model zwraca maskę klas, ale numeracja bywa różna w zależności od wersji — raz tło to `0`, raz `255`. Zamiast przyjmować jedną konwencję, `classifyMask()` porównuje dwa punkty odniesienia: ramkę kadru (górna krawędź i boki, gdzie prawie zawsze jest tło) oraz środkowy słupek (gdzie prawie zawsze stoi człowiek). Klasa z ramki to tło, wszystko inne to pierwszy plan.
+
+Gdy obie strony wskazują tę samą klasę, model nic sensownego nie znalazł — wtedy aplikacja odmawia i mówi to wprost, zamiast wyciąć losową połowę zdjęcia.
 
 ## Warstwa edycji bezpośredniej
 

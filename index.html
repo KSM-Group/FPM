@@ -113,8 +113,6 @@
     <section data-open="1">
       <h2>Szablon <span class="chev">▾</span></h2>
       <div class="body">
-        <label style="margin-top:0">Szukaj po okazji albo stylu</label>
-        <input type="search" id="tplSearch" placeholder="urodziny, ślub, sport, gazeta, plakat…">
         <div class="chips" id="groups"></div>
         <div class="gallery" id="gallery"></div>
         <p class="hint" id="tplDesc"></p>
@@ -368,7 +366,7 @@ function E(id, ax, ay, fn){
     TRACK = prevT; FO = prevF; CO = prevC;
     ctx.restore();
   }
-  if(id==='tytuł') drawPendingFg();   // winieta narysowana → osoba idzie na wierzch
+  if(id==='tytuł'){ MAST_DONE = true; drawPendingFg(); }   // winieta gotowa → osoba na wierzch
   return out;
 }
 
@@ -522,7 +520,7 @@ function photo(img, x, y, w, h, opt){
 
 /* Zdjęcie główne. Gdy osoba jest wycięta, tło i pierwszy plan idą osobno —
    dzięki temu winieta może wylądować pomiędzy nimi, jak na prawdziwej okładce. */
-let PENDING_FG = null;
+let PENDING_FG = null, MAST_DONE = false;
 function mainPhoto(x, y, w, h, defer){
   const opt = {zoom:S.zoom, ox:S.ox, oy:S.oy};
   if(!S.cut || S.bgMode==='off'){ photo(S.imgMain, x, y, w, h, opt); return; }
@@ -530,7 +528,10 @@ function mainPhoto(x, y, w, h, defer){
   if(S.bgMode==='blur') photo(S.imgMain, x, y, w, h, {...opt, blur:26});
   else if(S.bgMode==='color'){ ctx.fillStyle=P.a; ctx.fillRect(x,y,w,h); }
   else if(S.bgMode==='paper'){ ctx.fillStyle=P.paper; ctx.fillRect(x,y,w,h); }
-  if(defer===false || !S.behindTitle) photo(S.cut, x, y, w, h, opt);
+  /* Odkładamy pierwszy plan tylko wtedy, gdy winieta dopiero ma się narysować.
+     W układach gazetowych tytuł idzie pierwszy, więc czekanie na niego
+     wypchnęłoby osobę na sam wierzch okładki, na podpisy pod zdjęciem. */
+  if(defer === false || !S.behindTitle || MAST_DONE) photo(S.cut, x, y, w, h, opt);
   else PENDING_FG = {x,y,w,h};
 }
 function drawPendingFg(){
@@ -1030,7 +1031,7 @@ const findTpl = id => TEMPLATES.find(t=>t.id===id) || TEMPLATES[0];
 /* ---------- rysowanie ---------- */
 function render(){
   const sp = findTpl(S.tpl);
-  HIT = []; PENDING_FG = null;
+  HIT = []; PENDING_FG = null; MAST_DONE = false;
   ctx.save();
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,W,H);
@@ -1077,14 +1078,38 @@ async function loadSegmenter(setStatus){
   });
   return segmenter;
 }
+/* Która wartość maski oznacza tło? Różne wersje modelu numerują klasy inaczej,
+   więc zamiast zakładać, porównujemy dwa punkty odniesienia: ramkę kadru
+   (tam prawie zawsze jest tło) i jego środek (tam prawie zawsze stoi człowiek).
+   Gdy obie strony wskazują to samo, model nic nie znalazł i lepiej to powiedzieć,
+   niż wyciąć losową połowę zdjęcia. */
+function majority(counts){
+  let best = 0, bestCount = -1;
+  for(const [v,c] of counts) if(c > bestCount){ bestCount = c; best = v; }
+  return best;
+}
+function classifyMask(data, w, h){
+  const border = new Map(), center = new Map();
+  const bump = (m,v) => m.set(v, (m.get(v)||0) + 1);
+  for(let x = 0; x < w; x++) bump(border, data[x]);                 // górna krawędź
+  for(let y = 0; y < Math.round(h*0.7); y++){                       // boki, górne 70%
+    bump(border, data[y*w]); bump(border, data[y*w + w - 1]);
+  }
+  for(let y = Math.round(h*0.30); y < Math.round(h*0.90); y++)      // środkowy słupek
+    for(let x = Math.round(w*0.33); x < Math.round(w*0.67); x++)
+      bump(center, data[y*w + x]);
+  const bg = majority(border), fg = majority(center);
+  return {bg, fg, ok: bg !== fg};
+}
 /* maska → obrazek z kanałem alfa */
 function applyMask(img, maskData, mw, mh, feather){
+  const {bg, ok} = classifyMask(maskData, mw, mh);
+  let on = 0;
   const mc = document.createElement('canvas'); mc.width = mw; mc.height = mh;
   const mctx = mc.getContext('2d');
   const id = mctx.createImageData(mw, mh);
-  let on = 0;
   for(let i=0; i<mw*mh; i++){
-    const person = maskData[i] !== 0;
+    const person = maskData[i] !== bg;
     if(person) on++;
     id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = 255;
     id.data[i*4+3] = person ? 255 : 0;
@@ -1102,7 +1127,7 @@ function applyMask(img, maskData, mw, mh, feather){
   o.globalCompositeOperation = 'source-in';
   o.drawImage(img, 0, 0, out.width, out.height);
   o.globalCompositeOperation = 'source-over';
-  return {canvas: out, coverage: on/(mw*mh)};
+  return {canvas: out, coverage: on/(mw*mh), ok};
 }
 let lastMask = null;   // trzymane, żeby suwak wygładzenia działał bez liczenia od nowa
 
@@ -1118,10 +1143,12 @@ async function cutBackground(){
     const cat = res.categoryMask;
     lastMask = {data: cat.getAsUint8Array().slice(), w: cat.width, h: cat.height};
     res.close();
-    const {canvas, coverage} = applyMask(S.imgMain, lastMask.data, lastMask.w, lastMask.h, +$('feather').value);
-    if(coverage < 0.02){
+    const {canvas, coverage, ok} = applyMask(S.imgMain, lastMask.data, lastMask.w, lastMask.h, +$('feather').value);
+    if(!ok || coverage < 0.02 || coverage > 0.97){
       st.className='status err';
-      st.textContent='Nie znalazłem na tym zdjęciu osoby. Model jest wyszkolony na ludziach — przy przedmiotach nie pomoże.';
+      st.textContent = coverage > 0.97
+        ? 'Osoba wypełnia cały kadr — nie ma tu tła do wycięcia. Wgraj szersze ujęcie.'
+        : 'Nie znalazłem na tym zdjęciu osoby. Model jest wyszkolony na ludziach — przy przedmiotach nie pomoże.';
       lastMask = null; return;
     }
     S.cut = canvas;
@@ -1413,13 +1440,8 @@ const EXTRA_TAGS = {
 };
 TEMPLATES.forEach(t => { t.tags = [...(GROUP_TAGS[t.group]||[]), ...(EXTRA_TAGS[t.id]||[])]; });
 
-const SUGGESTIONS = ['urodziny','ślub','sport','gazeta','prezent','biznes','śmieszne','moda','rodzina','plakat','jubileusz','emerytura'];
-const norm = s => String(s).toLowerCase()
-  .replace(/ą/g,'a').replace(/ć/g,'c').replace(/ę/g,'e').replace(/ł/g,'l')
-  .replace(/ń/g,'n').replace(/ó/g,'o').replace(/ś/g,'s').replace(/[źż]/g,'z');
-
 const GROUPS = ['Wszystkie', ...[...new Set(TEMPLATES.map(t=>t.group))]];
-let activeGroup='Wszystkie', query='';
+let activeGroup='Wszystkie';
 function miniPreview(t){
   const p=PALETTES[t.pal!==undefined?t.pal:0];
   const base = {press:p.paper,minimal:p.paper,frame:p.paper,zine:p.paper,grid:p.ink,split:p.ink}[t.arch] || '#4a4f5e';
@@ -1436,35 +1458,8 @@ function tplCard(t){
 }
 function buildGallery(){
   const g=$('gallery'); g.innerHTML='';
-  const q=norm(query.trim());
-  const hay = t => norm([t.label, t.group, t.arch, t.mf, t.nf, ...t.tags].join(' '));
-  const matches = t => !q || hay(t).includes(q);
-  const list = TEMPLATES.filter(t => (activeGroup==='Wszystkie'||t.group===activeGroup) && matches(t));
-
-  if(list.length){ list.forEach(t=>g.appendChild(tplCard(t))); return; }
-
-  const box=document.createElement('div');
-  box.style.gridColumn='1/-1';
-  const elsewhere = q ? TEMPLATES.filter(matches) : [];
-  if(elsewhere.length){
-    box.innerHTML = `<p class="hint">W grupie <strong>${activeGroup}</strong> nie ma nic dla „${query.trim()}”, ale gdzie indziej owszem.</p>`;
-    const btn=document.createElement('button');
-    btn.className='mini'; btn.style.marginTop='8px';
-    btn.textContent = `Pokaż ${elsewhere.length} pasujących ze wszystkich grup`;
-    btn.onclick=()=>{ activeGroup='Wszystkie'; syncChips(); buildGallery(); };
-    box.appendChild(btn);
-  } else {
-    box.innerHTML = `<p class="hint">Nic nie pasuje do „${query.trim()}”. Wyszukiwarka rozumie okazje i style — spróbuj czegoś z tej listy:</p>`;
-    const row=document.createElement('div'); row.className='chips';
-    SUGGESTIONS.forEach(s=>{
-      const c=document.createElement('button');
-      c.className='chip'; c.textContent=s;
-      c.onclick=()=>{ query=s; $('tplSearch').value=s; activeGroup='Wszystkie'; syncChips(); buildGallery(); };
-      row.appendChild(c);
-    });
-    box.appendChild(row);
-  }
-  g.appendChild(box);
+  const list = TEMPLATES.filter(t => activeGroup==='Wszystkie' || t.group===activeGroup);
+  list.forEach(t => g.appendChild(tplCard(t)));
 }
 function selectTpl(id){
   S.tpl=id;
@@ -1492,7 +1487,6 @@ GROUPS.forEach(gr=>{
 });
 function syncChips(){ [...chips.children].forEach(c=>c.setAttribute('aria-pressed', String(c.dataset.group===activeGroup))); }
 syncChips();
-$('tplSearch').addEventListener('input', e=>{ query=e.target.value; buildGallery(); });
 
 /* --- palety --- */
 const palsEl=$('pals');
