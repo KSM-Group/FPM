@@ -113,7 +113,8 @@
     <section data-open="1">
       <h2>Szablon <span class="chev">▾</span></h2>
       <div class="body">
-        <input type="search" id="tplSearch" placeholder="Szukaj: gazeta, moda, plakat…">
+        <label style="margin-top:0">Szukaj po okazji albo stylu</label>
+        <input type="search" id="tplSearch" placeholder="urodziny, ślub, sport, gazeta, plakat…">
         <div class="chips" id="groups"></div>
         <div class="gallery" id="gallery"></div>
         <p class="hint" id="tplDesc"></p>
@@ -154,6 +155,33 @@
           <label style="margin:0"><input type="checkbox" id="duo"> duoton</label>
         </div>
         <p class="hint">Zdjęcie główne przesuniesz też myszą — złap puste miejsce na okładce i ciągnij. Kółko myszy przybliża.</p>
+      </div>
+    </section>
+
+    <section data-open="1" class="press">
+      <h2>Wycinanie tła (AI) <span class="chev">▾</span></h2>
+      <div class="body">
+        <div class="row">
+          <button id="btnCut" class="primary">Wytnij osobę ze zdjęcia</button>
+          <button id="btnCutOff" class="ghost">Przywróć oryginał</button>
+        </div>
+        <div class="status" id="cutStatus"></div>
+        <div id="cutOpts" style="display:none">
+          <label>Co w tle</label>
+          <select id="bgMode">
+            <option value="blur">rozmyte oryginalne tło</option>
+            <option value="color">jednolity kolor przewodni</option>
+            <option value="paper">jasne tło</option>
+            <option value="none">nic — samo tło szablonu</option>
+            <option value="off">jednak zostaw oryginał</option>
+          </select>
+          <div class="row" style="margin-top:12px">
+            <label style="margin:0"><input type="checkbox" id="behindTitle" checked> tytuł magazynu za osobą</label>
+          </div>
+          <label>Wygładzenie krawędzi</label>
+          <input type="range" id="feather" min="0" max="12" value="3">
+        </div>
+        <p class="hint">Model liczy się w Twojej przeglądarce — zdjęcie nigdzie nie jest wysyłane. Pierwsze uruchomienie pobiera około 2 MB i chwilę trwa, kolejne są natychmiastowe. Wymaga internetu tylko przy pierwszym użyciu.</p>
       </div>
     </section>
 
@@ -256,6 +284,7 @@
 /* =========================================================================
    FPM — silnik okładek + warstwa edycji bezpośredniej.
    ========================================================================= */
+const $ = id => document.getElementById(id);
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const W = 1240, H = 1748;
@@ -297,7 +326,7 @@ const S = {
   ],
   imgMain:null, imgA:null, imgB:null,
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
-  fast:false
+  cut:null, bgMode:'blur', behindTitle:true, fast:false
 };
 
 /* ---------- warstwa edycji ---------- */
@@ -339,6 +368,7 @@ function E(id, ax, ay, fn){
     TRACK = prevT; FO = prevF; CO = prevC;
     ctx.restore();
   }
+  if(id==='tytuł') drawPendingFg();   // winieta narysowana → osoba idzie na wierzch
   return out;
 }
 
@@ -473,7 +503,7 @@ function photo(img, x, y, w, h, opt){
     ctx.fillText('DODAJ ZDJĘCIE', x+w/2, y+h/2);
     clearLS(); ctx.restore(); return;
   }
-  ctx.filter = `brightness(${S.bri}%) contrast(${S.con}%) saturate(${S.duo?0:S.sat}%)`;
+  ctx.filter = `${opt.blur?`blur(${opt.blur}px) `:''}brightness(${S.bri}%) contrast(${S.con}%) saturate(${S.duo?0:S.sat}%)`;
   const z = opt.zoom!==undefined?opt.zoom:1;
   const r = Math.max(w/img.width, h/img.height)*z;
   const dw = img.width*r, dh = img.height*r;
@@ -489,7 +519,25 @@ function photo(img, x, y, w, h, opt){
   }
   ctx.restore();
 }
-const mainPhoto = (x,y,w,h) => photo(S.imgMain,x,y,w,h,{zoom:S.zoom,ox:S.ox,oy:S.oy});
+
+/* Zdjęcie główne. Gdy osoba jest wycięta, tło i pierwszy plan idą osobno —
+   dzięki temu winieta może wylądować pomiędzy nimi, jak na prawdziwej okładce. */
+let PENDING_FG = null;
+function mainPhoto(x, y, w, h, defer){
+  const opt = {zoom:S.zoom, ox:S.ox, oy:S.oy};
+  if(!S.cut || S.bgMode==='off'){ photo(S.imgMain, x, y, w, h, opt); return; }
+  const P = P_();
+  if(S.bgMode==='blur') photo(S.imgMain, x, y, w, h, {...opt, blur:26});
+  else if(S.bgMode==='color'){ ctx.fillStyle=P.a; ctx.fillRect(x,y,w,h); }
+  else if(S.bgMode==='paper'){ ctx.fillStyle=P.paper; ctx.fillRect(x,y,w,h); }
+  if(defer===false || !S.behindTitle) photo(S.cut, x, y, w, h, opt);
+  else PENDING_FG = {x,y,w,h};
+}
+function drawPendingFg(){
+  if(!PENDING_FG) return;
+  const f = PENDING_FG; PENDING_FG = null;
+  photo(S.cut, f.x, f.y, f.w, f.h, {zoom:S.zoom, ox:S.ox, oy:S.oy});
+}
 const thumbA = (x,y,w,h,o) => { if(S.imgA) E('kadr-A',x,y,()=>photo(S.imgA,x,y,w,h,{zoom:1.05,...o})); };
 const thumbB = (x,y,w,h,o) => { if(S.imgB) E('kadr-B',x,y,()=>photo(S.imgB,x,y,w,h,{zoom:1.05,...o})); };
 
@@ -868,7 +916,7 @@ function archZine(sp){
   reseed(S.masthead+sp.id);
   ctx.save(); ctx.translate(W/2,760); ctx.rotate(sp.tilt||-0.035);
   ctx.fillStyle=sp.dark?'#000':'#fff'; ctx.fillRect(-W*0.40-16,-476,W*0.80+32,952);
-  photo(S.imgMain,-W*0.40,-460,W*0.80,920,{zoom:S.zoom,ox:S.ox,oy:S.oy});
+  mainPhoto(-W*0.40,-460,W*0.80,920,false);
   ctx.restore();
 
   const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},W-2*M,sp.msz,50);
@@ -982,12 +1030,13 @@ const findTpl = id => TEMPLATES.find(t=>t.id===id) || TEMPLATES[0];
 /* ---------- rysowanie ---------- */
 function render(){
   const sp = findTpl(S.tpl);
-  HIT = [];
+  HIT = []; PENDING_FG = null;
   ctx.save();
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H);
   (ARCH[sp.arch]||archFullbleed)(sp);
+  drawPendingFg();               // gdyby szablon nie rysował winiety
   reseed(sp.id+S.masthead);
   grain();
   ctx.restore();
@@ -1007,6 +1056,112 @@ function drawSelection(){
   ctx.restore();
 }
 function paint(){ render(); drawSelection(); }
+
+/* =========================================================================
+   WYCINANIE TŁA
+   Model MediaPipe Selfie Segmenter liczy się lokalnie (WASM/GPU w przeglądarce).
+   Zdjęcie nie opuszcza urządzenia — pobierany jest tylko model.
+   ========================================================================= */
+const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+const MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+let segmenter = null;
+
+async function loadSegmenter(setStatus){
+  if(segmenter) return segmenter;
+  setStatus('Pobieram model (jednorazowo, ok. 2 MB)…');
+  const vision = await import(MP);
+  const files = await vision.FilesetResolver.forVisionTasks(MP + '/wasm');
+  segmenter = await vision.ImageSegmenter.createFromOptions(files, {
+    baseOptions:{modelAssetPath:MODEL, delegate:'GPU'},
+    runningMode:'IMAGE', outputCategoryMask:true, outputConfidenceMasks:false
+  });
+  return segmenter;
+}
+/* maska → obrazek z kanałem alfa */
+function applyMask(img, maskData, mw, mh, feather){
+  const mc = document.createElement('canvas'); mc.width = mw; mc.height = mh;
+  const mctx = mc.getContext('2d');
+  const id = mctx.createImageData(mw, mh);
+  let on = 0;
+  for(let i=0; i<mw*mh; i++){
+    const person = maskData[i] !== 0;
+    if(person) on++;
+    id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = 255;
+    id.data[i*4+3] = person ? 255 : 0;
+  }
+  mctx.putImageData(id, 0, 0);
+
+  const out = document.createElement('canvas');
+  out.width = img.naturalWidth || img.width;
+  out.height = img.naturalHeight || img.height;
+  const o = out.getContext('2d');
+  o.imageSmoothingEnabled = true; o.imageSmoothingQuality = 'high';
+  if(feather > 0) o.filter = `blur(${feather}px)`;
+  o.drawImage(mc, 0, 0, out.width, out.height);
+  o.filter = 'none';
+  o.globalCompositeOperation = 'source-in';
+  o.drawImage(img, 0, 0, out.width, out.height);
+  o.globalCompositeOperation = 'source-over';
+  return {canvas: out, coverage: on/(mw*mh)};
+}
+let lastMask = null;   // trzymane, żeby suwak wygładzenia działał bez liczenia od nowa
+
+async function cutBackground(){
+  const st = $('cutStatus');
+  const say = m => { st.className='status'; st.textContent = m; };
+  if(!S.imgMain){ st.className='status err'; st.textContent='Najpierw wgraj zdjęcie główne.'; return; }
+  $('btnCut').disabled = true;
+  try{
+    const seg = await loadSegmenter(say);
+    say('Szukam osoby na zdjęciu…');
+    const res = seg.segment(S.imgMain);
+    const cat = res.categoryMask;
+    lastMask = {data: cat.getAsUint8Array().slice(), w: cat.width, h: cat.height};
+    res.close();
+    const {canvas, coverage} = applyMask(S.imgMain, lastMask.data, lastMask.w, lastMask.h, +$('feather').value);
+    if(coverage < 0.02){
+      st.className='status err';
+      st.textContent='Nie znalazłem na tym zdjęciu osoby. Model jest wyszkolony na ludziach — przy przedmiotach nie pomoże.';
+      lastMask = null; return;
+    }
+    S.cut = canvas;
+    $('cutOpts').style.display = 'block';
+    st.className='status ok';
+    st.textContent = `Gotowe — osoba zajmuje ${Math.round(coverage*100)}% kadru. Popraw krawędzie suwakiem, jeśli trzeba.`;
+    paint();
+  }catch(err){
+    st.className='status err';
+    st.textContent = 'Nie udało się uruchomić modelu: ' + (err && err.message ? err.message : err) +
+      '. Sprawdź połączenie albo wgraj PNG z gotową przezroczystością — rozpoznam ją sam.';
+  }finally{ $('btnCut').disabled = false; }
+}
+function refeather(){
+  if(!lastMask || !S.imgMain) return;
+  S.cut = applyMask(S.imgMain, lastMask.data, lastMask.w, lastMask.h, +$('feather').value).canvas;
+  paint();
+}
+/* PNG z gotową przezroczystością — działa bez sieci i bez modelu */
+function detectAlpha(img){
+  const n = 160;
+  const c = document.createElement('canvas'); c.width = n; c.height = n;
+  const x = c.getContext('2d', {willReadFrequently:true});
+  x.drawImage(img, 0, 0, n, n);
+  const d = x.getImageData(0,0,n,n).data;
+  let clear = 0;
+  for(let i=3; i<d.length; i+=4) if(d[i] < 16) clear++;
+  return clear/(n*n) > 0.05;
+}
+
+$('btnCut').onclick = cutBackground;
+$('btnCutOff').onclick = ()=>{
+  S.cut = null; lastMask = null;
+  $('cutOpts').style.display='none';
+  $('cutStatus').textContent='';
+  paint();
+};
+$('bgMode').onchange = e => { S.bgMode = e.target.value; paint(); };
+$('behindTitle').onchange = e => { S.behindTitle = e.target.checked; paint(); };
+$('feather').oninput = refeather;
 
 /* =========================================================================
    KREATOR TREŚCI
@@ -1095,7 +1250,6 @@ function applyContent(o){
 /* =========================================================================
    INTERFEJS
    ========================================================================= */
-const $ = id => document.getElementById(id);
 
 /* --- hasła (maks. 10) --- */
 function buildLines(){
@@ -1230,6 +1384,40 @@ cv.addEventListener('wheel', e=>{
 }, {passive:false});
 
 /* --- galeria szablonów --- */
+/* Tagi: po nich działa wyszukiwarka. Nazwa szablonu rzadko mówi,
+   na jaką okazję się nadaje — a okazja to jest to, czego ludzie szukają. */
+const GROUP_TAGS = {
+  Glossy:  ['urodziny','jubileusz','prezent','lifestyle','elegancko','kobieta','portret','gwiazda'],
+  Gazeta:  ['gazeta','prasa','pierwsza strona','wiadomości','rocznica','emerytura','pożegnanie','awans','poważnie'],
+  Tabloid: ['żart','śmieszne','impreza','sensacja','plotki','wieczór panieński','wieczór kawalerski','parapetówka'],
+  Moda:    ['moda','uroda','minimalizm','ślub','elegancko','portret','spokojnie','biel'],
+  Biznes:  ['biznes','firma','szef','praca','awans','sukces','emerytura','konferencja','mężczyzna'],
+  Plakat:  ['plakat','sport','koncert','drużyna','wydarzenie','duży napis','klub','zawody','medal'],
+  Ramka:   ['prezent','pamiątka','ślub','chrzciny','dyplom','podziękowanie','ramka','na ścianę'],
+  Pas:     ['nowoczesnie','design','portret','architektura','pionowo','minimalizm'],
+  Siatka:  ['rodzina','wakacje','podsumowanie roku','zjazd','klasa','drużyna','grupa'],
+  Zin:     ['młodzieżowo','nastolatek','kolaż','muzyka','zabawa','szkoła','studia','koncert']
+};
+const EXTRA_TAGS = {
+  'splendor-05':['premiera','debiut'], 'splendor-06':['ciepło','rodzice','mama'],
+  'press-03':['wieczór','ciemne tło'], 'press-04':['wieś','lokalne','sąsiedzi'],
+  'press-07':['kronika','historia','wspomnienia'],
+  'tab-03':['sensacja','krzykliwe'], 'tab-06':['gwiazdy','celebryta'],
+  'min-03':['atelier','fotograf'], 'min-06':['studio','architekt'],
+  'spl-01':['liczba','wynik','ranking'], 'spl-05':['prezes','dyrektor'],
+  'pos-01':['sport','piłka','bieganie','siłownia'], 'pos-03':['afisz','koncert','festiwal','sport'],
+  'pos-05':['jubileusz','50','60','okrągła rocznica'],
+  'frm-04':['prezent','urodziny','święta','mikołaj'], 'frm-05':['pamiątka','dyplom','pożegnanie'],
+  'grd-01':['drużyna','zespół','firma'], 'grd-03':['podsumowanie roku','almanach'],
+  'zin-02':['wycinanka','punk','młodzieżowo'], 'zin-03':['kolaż','muzyka','festiwal']
+};
+TEMPLATES.forEach(t => { t.tags = [...(GROUP_TAGS[t.group]||[]), ...(EXTRA_TAGS[t.id]||[])]; });
+
+const SUGGESTIONS = ['urodziny','ślub','sport','gazeta','prezent','biznes','śmieszne','moda','rodzina','plakat','jubileusz','emerytura'];
+const norm = s => String(s).toLowerCase()
+  .replace(/ą/g,'a').replace(/ć/g,'c').replace(/ę/g,'e').replace(/ł/g,'l')
+  .replace(/ń/g,'n').replace(/ó/g,'o').replace(/ś/g,'s').replace(/[źż]/g,'z');
+
 const GROUPS = ['Wszystkie', ...[...new Set(TEMPLATES.map(t=>t.group))]];
 let activeGroup='Wszystkie', query='';
 function miniPreview(t){
@@ -1237,20 +1425,46 @@ function miniPreview(t){
   const base = {press:p.paper,minimal:p.paper,frame:p.paper,zine:p.paper,grid:p.ink,split:p.ink}[t.arch] || '#4a4f5e';
   return `background:linear-gradient(160deg,${base} 0%,${base} 58%,${p.a} 58%,${p.a} 66%,${base} 66%);`;
 }
+function tplCard(t){
+  const b=document.createElement('button');
+  b.className='card'; b.dataset.id=t.id;
+  b.title = t.tags.slice(0,6).join(', ');
+  b.setAttribute('aria-pressed', String(t.id===S.tpl));
+  b.innerHTML=`<span class="mini-prev" style="${miniPreview(t)}"></span><span class="cap">${t.label}<span class="grp">${t.group}</span></span>`;
+  b.onclick=()=>selectTpl(t.id);
+  return b;
+}
 function buildGallery(){
   const g=$('gallery'); g.innerHTML='';
-  const q=query.toLowerCase();
-  const list=TEMPLATES.filter(t=>(activeGroup==='Wszystkie'||t.group===activeGroup) &&
-    (!q || (t.label+' '+t.group+' '+t.arch).toLowerCase().includes(q)));
-  if(!list.length){ g.innerHTML='<p class="hint" style="grid-column:1/-1">Nic takiego tu nie ma. Wyczyść szukanie albo wybierz inną grupę.</p>'; return; }
-  list.forEach(t=>{
-    const b=document.createElement('button');
-    b.className='card'; b.dataset.id=t.id;
-    b.setAttribute('aria-pressed', String(t.id===S.tpl));
-    b.innerHTML=`<span class="mini-prev" style="${miniPreview(t)}"></span><span class="cap">${t.label}<span class="grp">${t.group}</span></span>`;
-    b.onclick=()=>selectTpl(t.id);
-    g.appendChild(b);
-  });
+  const q=norm(query.trim());
+  const hay = t => norm([t.label, t.group, t.arch, t.mf, t.nf, ...t.tags].join(' '));
+  const matches = t => !q || hay(t).includes(q);
+  const list = TEMPLATES.filter(t => (activeGroup==='Wszystkie'||t.group===activeGroup) && matches(t));
+
+  if(list.length){ list.forEach(t=>g.appendChild(tplCard(t))); return; }
+
+  const box=document.createElement('div');
+  box.style.gridColumn='1/-1';
+  const elsewhere = q ? TEMPLATES.filter(matches) : [];
+  if(elsewhere.length){
+    box.innerHTML = `<p class="hint">W grupie <strong>${activeGroup}</strong> nie ma nic dla „${query.trim()}”, ale gdzie indziej owszem.</p>`;
+    const btn=document.createElement('button');
+    btn.className='mini'; btn.style.marginTop='8px';
+    btn.textContent = `Pokaż ${elsewhere.length} pasujących ze wszystkich grup`;
+    btn.onclick=()=>{ activeGroup='Wszystkie'; syncChips(); buildGallery(); };
+    box.appendChild(btn);
+  } else {
+    box.innerHTML = `<p class="hint">Nic nie pasuje do „${query.trim()}”. Wyszukiwarka rozumie okazje i style — spróbuj czegoś z tej listy:</p>`;
+    const row=document.createElement('div'); row.className='chips';
+    SUGGESTIONS.forEach(s=>{
+      const c=document.createElement('button');
+      c.className='chip'; c.textContent=s;
+      c.onclick=()=>{ query=s; $('tplSearch').value=s; activeGroup='Wszystkie'; syncChips(); buildGallery(); };
+      row.appendChild(c);
+    });
+    box.appendChild(row);
+  }
+  g.appendChild(box);
 }
 function selectTpl(id){
   S.tpl=id;
@@ -1259,7 +1473,7 @@ function selectTpl(id){
   SEL=null; $('editbar').classList.remove('on');
   if(t.pal!==undefined){ S.pal=t.pal; syncPals(); }
   [...$('gallery').children].forEach(c=>c.dataset && c.setAttribute('aria-pressed', String(c.dataset.id===id)));
-  $('tplDesc').textContent = `${t.label} · układ „${t.arch}” · grupa ${t.group}`;
+  $('tplDesc').textContent = `${t.label} · grupa ${t.group} · pasuje na: ${t.tags.slice(0,5).join(', ')}`;
   $('counter').textContent = `${TEMPLATES.findIndex(x=>x.id===id)+1} / ${TEMPLATES.length}`;
   paint();
 }
@@ -1272,11 +1486,12 @@ function stepTpl(d){
 const chips=$('groups');
 GROUPS.forEach(gr=>{
   const b=document.createElement('button');
-  b.className='chip'; b.textContent=gr;
-  b.setAttribute('aria-pressed', String(gr===activeGroup));
-  b.onclick=()=>{ activeGroup=gr; [...chips.children].forEach(c=>c.setAttribute('aria-pressed',String(c.textContent===gr))); buildGallery(); };
+  b.className='chip'; b.textContent=gr; b.dataset.group=gr;
+  b.onclick=()=>{ activeGroup=gr; syncChips(); buildGallery(); };
   chips.appendChild(b);
 });
+function syncChips(){ [...chips.children].forEach(c=>c.setAttribute('aria-pressed', String(c.dataset.group===activeGroup))); }
+syncChips();
 $('tplSearch').addEventListener('input', e=>{ query=e.target.value; buildGallery(); });
 
 /* --- palety --- */
@@ -1321,7 +1536,19 @@ $('tagline').addEventListener('focus',()=>select('podpis',false));
 function loadImage(file,slot){
   if(!file||!file.type.startsWith('image/')) return;
   const url=URL.createObjectURL(file), img=new Image();
-  img.onload=()=>{ S[slot]=img; paint(); if(slot!=='imgMain') markThumb(slot,url); };
+  img.onload=()=>{
+    S[slot]=img;
+    if(slot==='imgMain'){
+      S.cut = null; lastMask = null; $('cutOpts').style.display='none';
+      if(detectAlpha(img)){
+        S.cut = img; $('cutOpts').style.display='block';
+        const st=$('cutStatus'); st.className='status ok';
+        st.textContent='Ten plik ma już przezroczyste tło — użyłem go bez modelu.';
+      } else $('cutStatus').textContent='';
+    }
+    paint();
+    if(slot!=='imgMain') markThumb(slot,url);
+  };
   img.src=url;
 }
 const markThumb=(slot,url)=>{ (slot==='imgA'?$('thA'):$('thB')).innerHTML=`<img src="${url}" alt="">`; };

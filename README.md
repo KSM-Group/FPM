@@ -9,9 +9,12 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 - **Pole na tytuł magazynu** plus dopisek, numer, data i cena.
 - **Do 10 haseł** — dodajesz, usuwasz, przestawiasz i edytujesz. Licznik pilnuje limitu, a szablon bierze tyle, ile mieści się bez ścisku, zaczynając od pierwszego.
 - **Edycja wprost na okładce** — kliknij dowolny napis albo kadr, żeby go zaznaczyć. Przeciąganie przesuwa, kwadrat w rogu skaluje, kółko myszy też skaluje, strzałki przesuwają co 2 px (z Shiftem co 10). Dla tekstu dochodzi wybór kroju i koloru. Kliknięcie w puste miejsce odznacza i przechodzi w tryb przesuwania zdjęcia głównego.
+- **Wycinanie tła osoby (AI, lokalnie)** — jedno kliknięcie oddziela postać od tła. Model MediaPipe Selfie Segmenter działa w przeglądarce przez WASM/GPU, zdjęcie nigdzie nie jest wysyłane; z sieci pobiera się tylko sam model (~2 MB, raz). Tło można zostawić rozmyte, zamienić na kolor przewodni, na jasne albo usunąć zupełnie. Suwak wygładza krawędzie. PNG z gotową przezroczystością jest rozpoznawany od razu, bez modelu i bez internetu.
+- **Tytuł za osobą** — po wycięciu winieta ląduje między tłem a postacią, tak jak na prawdziwych okładkach.
 - **Żartobliwe teksty domyślne** — startowa okładka to „Legenda Osiedla" z redakcyjnym śledztwem w sprawie drugiej skarpetki. Wbudowany kreator też pisze z przymrużeniem oka.
 - **Opis → gotowa okładka**: wpisujesz kilka zdań o osobie, dostajesz komplet tytułu, nazwiska, podpisu i dziesięciu haseł. Wbudowany kreator działa bez internetu; opcjonalnie można podłączyć Claude API własnym kluczem.
-- **53 szablony** w grupach: Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin. Wyszukiwarka, filtry i przewijanie strzałkami ← →. Dziesięć kolorów przewodnich plus duoton.
+- **53 szablony** w grupach: Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin. Dziesięć kolorów przewodnich plus duoton. Przewijanie strzałkami ← →.
+- **Wyszukiwarka szuka po okazji, nie po nazwie** — „sport", „ślub", „urodziny", „emerytura", „śmieszne". Każdy szablon ma tagi (`GROUP_TAGS` + `EXTRA_TAGS`), polskie znaki są ignorowane przy porównaniu, więc „slub" znajduje to samo co „ślub". Gdy nic nie pasuje, pokazuje klikalne podpowiedzi zamiast pustej listy.
 - **Eksport**: PNG, JPG oraz PNG 2× (2480 × 3496 px, czyli A4 przy ~300 dpi). Ramka zaznaczenia nigdy nie trafia do pliku. Skrót `Ctrl/Cmd + S`.
 
 ## Uruchomienie
@@ -105,6 +108,12 @@ T('moj-01','Mój szablon','Glossy','fullbleed',{
 Własny archetyp: napisz `function archMoj(sp){…}` (płótno 1240 × 1748) i dopisz go do mapy `ARCH`. Do dyspozycji masz `text()`, `fitSize()`, `fitBlock()`, `column()`, `rule()`, `photo()`, `mainPhoto()`, `scrimTop()`, `scrimBottom()`, `barcode()`, `makeQueue()` oraz `PALETTES[S.pal]`.
 
 `makeQueue()` obsługuje zmienną liczbę haseł: archetyp pobiera z kolejki tyle, ile zmieści, a `column()` pilnuje, żeby nic nie wyszło poza wyznaczony obszar.
+
+## Jak działa „tytuł za osobą"
+
+Po wycięciu tła zdjęcie główne rozpada się na dwie warstwy. `mainPhoto()` rysuje tylko tło i odkłada pierwszy plan do `PENDING_FG`. Funkcja `E()`, która opakowuje każdy ruchomy element, po narysowaniu elementu o identyfikatorze `tytuł` wywołuje `drawPendingFg()` — postać ląduje na winiecie, reszta tekstów rysuje się już po niej, czyli na wierzchu. Gdyby jakiś układ nie rysował winiety, `render()` domyka warstwę na końcu.
+
+Wyjątek to kolaż w grupie Zin: zdjęcie jest tam obrócone we własnym układzie współrzędnych, więc pierwszy plan rysuje się od razu (`mainPhoto(..., false)`), a tytuł zostaje na wierzchu.
 
 ## Warstwa edycji bezpośredniej
 
