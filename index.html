@@ -7,7 +7,7 @@
 <meta name="description" content="Generator okładek magazynów: 53 szablony, przeciąganie i skalowanie elementów na żywej okładce, obróbka zdjęcia w przeglądarce, eksport PNG do druku.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo+Black&family=Barlow+Condensed:wght@400;600;700&family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;700&family=Oswald:wght@300;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Space+Grotesk:wght@400;500;700&subset=latin-ext&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Archivo+Black&family=Barlow+Condensed:wght@400;600;700&family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;700&family=Oswald:wght@300;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Prata&family=Jost:ital,wght@0,300;0,500;0,700;1,300&family=Marcellus&family=Space+Grotesk:wght@400;500;700&subset=latin-ext&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#15171E; --ink-2:#1E212B; --panel:#252936; --line:#39405280;
@@ -415,9 +415,12 @@ function E(id, ax, ay, fn){
    Jeśli krój nie ma choćby jednego znaku, przeglądarka podstawia zastępczy —
    a wtedy szerokość napisu różni się w zależności od podanego fallbacku.       */
 const PL_GLYPHS = 'ĄĆĘŁŃÓŚŹŻąćęłńóśźż';
-const ALL_FONTS = ['Playfair Display','DM Serif Display','Abril Fatface','Cormorant Garamond',
-                   'Anton','Archivo Black','Bebas Neue','Oswald','Barlow Condensed','Space Grotesk','Inter'];
+const ALL_FONTS = ['Bodoni Moda','Prata','Marcellus','Playfair Display','DM Serif Display','Abril Fatface',
+                   'Cormorant Garamond','Anton','Archivo Black','Bebas Neue','Jost','Oswald',
+                   'Barlow Condensed','Space Grotesk','Inter'];
 const FONT_SWAP = {
+  'Bodoni Moda':'Playfair Display', 'Prata':'Playfair Display', 'Marcellus':'Cormorant Garamond',
+  'Jost':'Inter',
   'Abril Fatface':'Playfair Display', 'DM Serif Display':'Playfair Display',
   'Cormorant Garamond':'Playfair Display', 'Playfair Display':'Inter',
   'Bebas Neue':'Oswald', 'Anton':'Archivo Black', 'Archivo Black':'Oswald',
@@ -1005,117 +1008,118 @@ function archZine(sp){
   if(sp.barcode) barcodeAt(W-M-150,H-70,130,34);
 }
 
-/* 11. bilet / wejściówka */
-function archTicket(sp){
-  const P=P_(), M=46, k=sc(), q=makeQueue(), ink=P.ink;
-  ctx.fillStyle=sp.dark?'#15130F':'#CFC8BC'; ctx.fillRect(0,0,W,H);
-  const tx=M, ty=M, tw=W-2*M, th=H-2*M;
-  ctx.fillStyle=P.paper; ctx.fillRect(tx,ty,tw,th);
-  const stub=230;
-  /* perforacja */
-  ctx.fillStyle=ink+'55';
-  for(let y=ty+18; y<ty+th-18; y+=22) ctx.fillRect(tx+stub, y, 2, 11);
-  ctx.fillStyle=sp.dark?'#15130F':'#CFC8BC';
-  ctx.beginPath(); ctx.arc(tx+stub+1, ty, 17, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(tx+stub+1, ty+th, 17, 0, 7); ctx.fill();
-
-  /* odcinek kontrolny */
-  E('stopka', tx+stub*0.42, ty+th-60, ()=>{
-    ctx.save(); ctx.translate(tx+stub*0.42, ty+th-60); ctx.rotate(-Math.PI/2);
-    text(`${S.issue} · ${S.date} · ${S.price}`, {x:0,y:0,size:19*k,family:'Oswald',weight:500,ls:5,color:ink,upper:true});
-    ctx.restore();
-  });
-  E('dopisek', tx+stub*0.75, ty+th-60, ()=>{
-    ctx.save(); ctx.translate(tx+stub*0.75, ty+th-60); ctx.rotate(-Math.PI/2);
-    text(S.sub, {x:0,y:0,size:16*k,family:'Oswald',weight:300,ls:6,color:P.a,upper:true});
-    ctx.restore();
-  });
-  const mx=tx+stub+50, mw=tw-stub-100;
-  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},mw,sp.msz,40);
-  E('tytuł', mx, ty+96, ()=>text(S.masthead,{x:mx,y:ty+96,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:ink}));
-  rule(mx, ty+120, mw, P.a, 4);
-  mainPhoto(mx, ty+150, mw, 720);
-
-  const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:sp.nu},mw,104*k,38,2);
-  let y = E('nazwisko', mx, ty+960, ()=>text(S.name,{x:mx,y:ty+960,size:ns,lh:ns*0.96,family:sp.nf,weight:sp.nw,upper:sp.nu,color:ink,maxW:mw}));
-  y = E('podpis', mx, y+18, ()=>text(S.tagline,{x:mx,y:y+18,size:24*k,family:'Oswald',weight:300,ls:4,color:P.a,upper:true,maxW:mw}))+30;
-  rule(mx, y, mw, ink+'33', 1); y+=34;
-  /* wiersze z kropkowanym wypełnieniem, jak na wejściówce */
-  column(q,{x:mx,y,yMax:ty+th-130,maxW:mw,size:19*k,lh:24*k,family:'Inter',weight:500,color:ink,gap:20,
-    marker:(x,yy)=>{ ctx.fillStyle=ink+'22'; for(let d=x; d<x+mw; d+=9) ctx.fillRect(d, yy+7, 3, 2); }});
-  reseed(S.masthead+S.name);
-  if(sp.barcode) barcodeAt(W-M-190, H-M-70, 160, 40);
+/* ---------- hasła w stylu prasy modowej ----------
+   Wejście hasła (do dwukropka, myślnika albo pierwsze dwa słowa) idzie grubo,
+   reszta lekko. To ten rytm odróżnia okładkę modową od zwykłej listy tematów. */
+function splitLead(t){
+  const m = t.match(/^(.{3,34}?)\s*[:—–-]\s*(.+)$/);
+  if(m) return [m[1], m[2]];
+  const w = t.split(/\s+/);
+  if(w.length > 4) return [w.slice(0,2).join(' '), w.slice(2).join(' ')];
+  return [t, ''];
+}
+function fashionLines(q, o){
+  let y = o.y;
+  while(q.peek() && y < o.yMax){
+    const it = q.peek();
+    const [lead, rest] = splitLead(it.t);
+    const lo = {size:o.size, family:o.sans, weight:700, ls:o.ls, upper:true, color:o.color, align:o.align, maxW:o.maxW};
+    const ro = {size:o.size*0.94, lh:o.size*1.22, family:o.sans, weight:300, ls:o.ls, upper:true, color:o.color, align:o.align, maxW:o.maxW};
+    const need = blockH(lead, lo, o.maxW) + (rest ? blockH(rest, ro, o.maxW) : 0);
+    if(y + need > o.yMax) break;
+    q.next();
+    const yy = y;
+    y = E('line-'+it.i, o.x, yy, ()=>{
+      let b = text(lead, {...lo, x:o.x, y:yy});
+      if(rest) b = text(rest, {...ro, x:o.x, y:b + o.size*0.16});
+      return b;
+    }) + (o.gap || o.size*1.5);
+  }
+  return y;
 }
 
-/* 12. karta kolekcjonerska */
-function archCard(sp){
-  const P=P_(), M=52, k=sc(), q=makeQueue();
-  const g=ctx.createLinearGradient(0,0,W,H);
-  g.addColorStop(0,P.a); g.addColorStop(1,P.ink);
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle=P.paper; ctx.fillRect(M,M,W-2*M,H-2*M);
-  ctx.strokeStyle=P.a; ctx.lineWidth=6; ctx.strokeRect(M+16,M+16,W-2*M-32,H-2*M-32);
+/* 11. okładka modowa: didone przez całą szerokość, hasła w dwóch łamach */
+function archModa(sp){
+  const P=P_(), M=58, k=sc(), q=makeQueue();
+  mainPhoto(0,0,W,H);
+  scrimTop(430, S.scrim/100*0.75); scrimBottom(640, S.scrim/100*0.85);
+  const ink = sp.lightInk ? P.ink : '#fff';
 
-  const ix=M+40, iw=W-2*M-80;
-  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true},iw-160,sp.msz,32);
-  E('tytuł', ix, M+96, ()=>text(S.masthead,{x:ix,y:M+96,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true,color:P.ink}));
-  /* emblemat z inicjałami */
-  const ini=S.name.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]||'').join('');
-  ctx.beginPath(); ctx.arc(W-M-92, M+82, 52, 0, 7); ctx.fillStyle=P.a; ctx.fill();
-  text(ini,{x:W-M-92,y:M+98,size:44,family:'Anton',weight:400,color:'#fff',align:'center',upper:true});
+  E('stopka', M, 62, ()=>{
+    text(`${S.issue}  ·  ${S.date}`,{x:M,y:62,size:14*k,family:sp.sans,weight:500,ls:5,color:ink,upper:true});
+    text(S.price,{x:W-M,y:62,size:14*k,family:sp.sans,weight:500,ls:5,color:ink,align:'right',upper:true});
+  });
+  const ms = fitSize(S.masthead,{family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu},W-2*M,sp.msz,70);
+  E('tytuł', W/2, 90+ms*0.76, ()=>text(S.masthead,{x:W/2,y:90+ms*0.76,size:ms,family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu,color:sp.mc==='a'?P.a:ink,align:'center'}));
+  E('dopisek', W/2, 120+ms*0.9, ()=>text(S.sub,{x:W/2,y:120+ms*0.9,size:15*k,family:sp.sans,weight:500,ls:9,color:ink,align:'center',upper:true}));
 
-  mainPhoto(ix, M+130, iw, 780);
-  ctx.strokeStyle=P.ink+'22'; ctx.lineWidth=2; ctx.strokeRect(ix, M+130, iw, 780);
+  const colW = 296*k, colTop = 500, colBottom = H-520;
+  fashionLines(q,{x:M,      y:colTop,    yMax:colBottom, maxW:colW, size:23*k, ls:1.6, sans:sp.sans, color:ink, align:'left'});
+  fashionLines(q,{x:W-M,    y:colTop+40, yMax:colBottom, maxW:colW, size:23*k, ls:1.6, sans:sp.sans, color:ink, align:'right'});
 
-  ctx.fillStyle=P.a; ctx.fillRect(ix, M+930, iw, 96);
-  const ns=fitSize(S.name,{family:sp.nf,weight:sp.nw,upper:true},iw-40,72*k,30);
-  E('nazwisko', W/2, M+996, ()=>text(S.name,{x:W/2,y:M+996,size:ns,family:sp.nf,weight:sp.nw,upper:true,color:'#fff',align:'center'}));
-  E('podpis', W/2, M+1064, ()=>text(S.tagline,{x:W/2,y:M+1064,size:21*k,family:'Oswald',weight:500,ls:4,color:P.ink,align:'center',upper:true,maxW:iw}));
-
-  /* tabela osiągnięć — naprzemienne pasy */
-  let y=M+1112, i=0;
-  while(q.peek() && y < H-M-120){
-    const it=q.next();
-    if(i%2===0){ ctx.fillStyle=P.ink+'0D'; ctx.fillRect(ix, y-4, iw, 46); }
-    const yy=y+26;
-    E('line-'+it.i, ix+14, yy, ()=>text(it.t,{x:ix+14,y:yy,size:18*k,family:'Inter',weight:500,color:P.ink,maxW:iw-28}));
-    y+=48; i++;
+  /* temat okładkowy: didone kursywą, największe hasło na stronie */
+  const hero = q.next();
+  let hy = H-360;
+  if(hero){
+    const hs = fitBlock(hero.t,{family:sp.mf,weight:sp.hw||400,italic:true},620*k,66*k,26,3);
+    hy = E('line-'+hero.i, M, H-360, ()=>text(hero.t,{x:M,y:H-360,size:hs,lh:hs*1.06,family:sp.mf,weight:sp.hw||400,italic:true,color:ink,maxW:620*k}));
+    rule(M, hy+20, 90, P.a, 3);
   }
+  const ns = fitSize(S.name,{family:sp.sans,weight:700,upper:true,ls:6},W-2*M,34*k,16);
+  E('nazwisko', W-M, H-150, ()=>text(S.name,{x:W-M,y:H-150,size:ns,family:sp.sans,weight:700,ls:6,upper:true,color:ink,align:'right'}));
+  E('podpis', W-M, H-108, ()=>text(S.tagline,{x:W-M,y:H-108,size:21*k,family:sp.mf,weight:400,italic:true,color:ink,align:'right',maxW:520}));
   reseed(S.masthead+S.name);
-  if(sp.barcode) barcodeAt(W/2-70, H-M-72, 140, 36);
+  if(sp.barcode) barcodeAt(M, H-108, 130, 34);
 }
 
-/* 13. okładka płyty — hasła jako lista utworów */
-function archAlbum(sp){
-  const P=P_(), M=70, k=sc(), q=makeQueue();
-  ctx.fillStyle=sp.light?P.paper:'#0C0C0E'; ctx.fillRect(0,0,W,H);
-  const ink=sp.light?P.ink:'#F2F0EA', mid=sp.light?'#6A6258':'#9A9A9F';
-  E('dopisek', M, 96, ()=>text(S.sub,{x:M,y:96,size:16*k,family:'Oswald',weight:300,ls:7,color:P.a,upper:true}));
-  const ms=fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu},W-2*M,sp.msz,40);
-  E('tytuł', M, 160, ()=>text(S.masthead,{x:M,y:160,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:sp.mu,color:ink}));
+/* 12. numer kolekcjonerski: winieta, jedno hasło i dużo powietrza */
+function archEditorial(sp){
+  const P=P_(), M=54, k=sc(), q=makeQueue();
+  mainPhoto(0,0,W,H);
+  scrimTop(360, S.scrim/100*0.6); scrimBottom(560, S.scrim/100*0.8);
+  ctx.strokeStyle='#ffffff88'; ctx.lineWidth=2; ctx.strokeRect(26,26,W-52,H-52);
 
-  const sq=W-2*M;
-  mainPhoto(M, 200, sq, sq);
-  ctx.strokeStyle=ink+'22'; ctx.lineWidth=2; ctx.strokeRect(M,200,sq,sq);
+  const ms = fitSize(S.masthead,{family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu},W-2*M-40,sp.msz,60);
+  E('tytuł', W/2, 96+ms*0.74, ()=>text(S.masthead,{x:W/2,y:96+ms*0.74,size:ms,family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu,color:'#fff',align:'center'}));
+  E('dopisek', W/2, 132+ms*0.86, ()=>text(`${S.sub} · ${S.issue} · ${S.date}`,{x:W/2,y:132+ms*0.86,size:14*k,family:sp.sans,weight:500,ls:8,color:'#ffffffcc',align:'center',upper:true}));
 
-  const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni},W-2*M,86*k,32,2);
-  let y = E('nazwisko', M, 200+sq+86, ()=>text(S.name,{x:M,y:200+sq+86,size:ns,lh:ns*0.98,family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni,color:ink,maxW:W-2*M}));
-  E('podpis', M, y+14, ()=>text(S.tagline,{x:M,y:y+14,size:20*k,family:'Oswald',weight:300,ls:5,color:P.a,upper:true,maxW:W-2*M}));
-  rule(M, y+40, W-2*M, ink+'2A', 1);
+  const ns = fitBlock(S.name,{family:sp.mf,weight:sp.nw||400,italic:sp.ni},W-2*M-60,110*k,40,2);
+  let y = E('nazwisko', W/2, H-330, ()=>text(S.name,{x:W/2,y:H-330,size:ns,lh:ns*0.98,family:sp.mf,weight:sp.nw||400,italic:sp.ni,color:'#fff',align:'center',maxW:W-2*M-60}));
+  E('podpis', W/2, y+34, ()=>text(S.tagline,{x:W/2,y:y+34,size:15*k,family:sp.sans,weight:500,ls:9,color:P.b,align:'center',upper:true,maxW:W-2*M}));
+  rule(W/2-40, y+62, 80, P.a, 2);
 
-  /* lista utworów w dwóch kolumnach */
-  const cw=(W-2*M-40)/2;
-  let n=1, col=0, ty=y+82;
-  while(q.peek()){
-    const it=q.next(), x=M+col*(cw+40), yy=ty;
-    text(String(n).padStart(2,'0'),{x,y:yy,size:15*k,family:'Oswald',weight:500,ls:2,color:P.a});
-    E('line-'+it.i, x+34, yy, ()=>text(it.t,{x:x+34,y:yy,size:17*k,family:'Inter',weight:400,color:mid,maxW:cw-34}));
-    n++; ty+=30;
-    if(ty > H-120){ ty=y+82; col++; if(col>1) break; }
-  }
-  E('stopka', W-M, H-52, ()=>text(`${S.issue} · ${S.date} · ${S.price}`,{x:W-M,y:H-52,size:14*k,family:'Oswald',weight:300,ls:4,color:mid,align:'right',upper:true}));
+  const one = q.next();
+  if(one) E('line-'+one.i, W/2, H-150, ()=>text(one.t,{x:W/2,y:H-150,size:19*k,lh:26*k,family:sp.sans,weight:300,ls:4,color:'#fff',align:'center',upper:true,maxW:W-300}));
+  const two = q.next();
+  if(two) E('line-'+two.i, W/2, H-96, ()=>text(two.t,{x:W/2,y:H-96,size:14*k,family:sp.sans,weight:500,ls:6,color:'#ffffffaa',align:'center',upper:true,maxW:W-300}));
   reseed(S.masthead+S.name);
-  if(sp.barcode) barcodeAt(M, H-84, 130, 34);
+}
+
+/* 13. wybieg: zdjęcie w białej ramie, hasła w pasie pod spodem */
+function archRunway(sp){
+  const P=P_(), M=52, k=sc(), q=makeQueue(), ink=P.ink;
+  ctx.fillStyle=P.paper; ctx.fillRect(0,0,W,H);
+  const px=M, py=228, pw=W-2*M, ph=1090;
+  mainPhoto(px,py,pw,ph);
+
+  /* winieta wchodzi na krawędź zdjęcia — znak rozpoznawczy modowych okładek */
+  const ms = fitSize(S.masthead,{family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu},W-2*M,sp.msz,60);
+  E('tytuł', W/2, py+30, ()=>text(S.masthead,{x:W/2,y:py+30,size:ms,family:sp.mf,weight:sp.mw,italic:sp.mi,ls:sp.mls,upper:sp.mu,color:sp.overInk||'#fff',align:'center'}));
+  E('stopka', M, 96, ()=>{
+    text(S.sub,{x:M,y:96,size:14*k,family:sp.sans,weight:500,ls:7,color:P.a,upper:true});
+    text(`${S.issue} · ${S.date} · ${S.price}`,{x:W-M,y:96,size:14*k,family:sp.sans,weight:500,ls:5,color:ink,align:'right',upper:true});
+  });
+  rule(M,124,W-2*M,ink,1);
+
+  const ns = fitSize(S.name,{family:sp.mf,weight:sp.nw||700,italic:sp.ni},W-2*M,76*k,30);
+  let y = E('nazwisko', M, py+ph+82, ()=>text(S.name,{x:M,y:py+ph+82,size:ns,family:sp.mf,weight:sp.nw||700,italic:sp.ni,color:ink}));
+  E('podpis', W-M, py+ph+82, ()=>text(S.tagline,{x:W-M,y:py+ph+82,size:15*k,family:sp.sans,weight:500,ls:6,color:P.a,align:'right',upper:true,maxW:520}));
+  rule(M, py+ph+110, W-2*M, ink+'33', 1);
+
+  const cw=(W-2*M-64)/3;
+  for(let c=0;c<3;c++)
+    fashionLines(q,{x:M+c*(cw+32), y:py+ph+156, yMax:H-70, maxW:cw, size:15*k, ls:1.4, sans:sp.sans, color:ink, align:'left', gap:26});
+  reseed(S.masthead+S.name);
 }
 
 /* 14. plakat filmowy z blokiem twórców */
@@ -1144,7 +1148,7 @@ function archCredits(sp){
 
 const ARCH = {fullbleed:archFullbleed, press:archPress, tabloid:archTabloid, minimal:archMinimal,
               split:archSplit, poster:archPoster, frame:archFrame, band:archBandSide, grid:archGrid, zine:archZine,
-              ticket:archTicket, card:archCard, album:archAlbum, credits:archCredits};
+              credits:archCredits, moda:archModa, editorial:archEditorial, runway:archRunway};
 
 /* =========================================================================
    SZABLONY
@@ -1153,7 +1157,7 @@ const DEF = {
   mf:'Playfair Display', mw:900, mi:false, mls:-2, mu:false, ma:'c', msz:210, mc:'w', mrule:false,
   lf:'Oswald', lw:500, lu:true, lls:0.5,
   nf:'Playfair Display', nw:900, ni:false, nu:false,
-  ac:'bar', barcode:true, thumbs:true, side:'l'
+  ac:'bar', barcode:true, thumbs:true, side:'l', sans:'Jost'
 };
 const T = (id,label,group,arch,p) => Object.assign({id,label,group,arch}, DEF, p||{});
 
@@ -1221,23 +1225,24 @@ const TEMPLATES = [
   T('zin-02','Wycinanka','Zin','zine',{mf:'Anton',mw:400,mu:true,msz:160,tilt:0.04,tilt2:-0.03,lf:'Anton',lw:400,nf:'Anton',nw:400,nu:true,dark:true,pal:6}),
   T('zin-03','Kolaż','Zin','zine',{mf:'Bebas Neue',mw:400,mls:4,msz:170,tilt:-0.06,lf:'Barlow Condensed',lw:700,nf:'Bebas Neue',nw:400,nu:true,pal:7}),
 
-  /* --- Bilet --- */
-  T('tck-01','Wejściówka','Bilet','ticket',{mf:'Oswald',mw:700,mu:true,mls:4,msz:76,nf:'Anton',nw:400,nu:true,pal:0}),
-  T('tck-02','Peron','Bilet','ticket',{mf:'Barlow Condensed',mw:700,mu:true,mls:6,msz:80,nf:'Barlow Condensed',nw:700,nu:true,dark:true,pal:5}),
-  T('tck-03','Karnet','Bilet','ticket',{mf:'Bebas Neue',mw:400,mls:6,msz:88,nf:'Bebas Neue',nw:400,nu:true,pal:4}),
-  T('tck-04','Zaproszenie','Bilet','ticket',{mf:'Cormorant Garamond',mw:600,mu:true,mls:12,msz:70,nf:'Cormorant Garamond',nw:600,ni:true,motif:'deco',pal:2}),
+  /* --- Wysoka moda: konwencje typograficzne prasy modowej --- */
+  T('vog-01','Didona','Wysoka moda','moda',{mf:'Bodoni Moda',mw:500,mls:-1,mu:true,msz:250,sans:'Jost',hw:400,pal:5}),
+  T('vog-02','Paryż','Wysoka moda','moda',{mf:'Bodoni Moda',mw:400,mls:6,mu:true,msz:210,sans:'Jost',hw:400,mc:'a',pal:0}),
+  T('vog-03','Milano','Wysoka moda','moda',{mf:'Prata',mw:400,mls:2,mu:true,msz:200,sans:'Jost',hw:400,pal:9}),
+  T('vog-04','Kolekcja','Wysoka moda','moda',{mf:'Bodoni Moda',mw:700,mls:-2,mu:true,msz:260,sans:'Inter',hw:700,pal:3}),
+  T('vog-05','Sesja','Wysoka moda','moda',{mf:'Marcellus',mw:400,mls:14,mu:true,msz:170,sans:'Jost',hw:400,pal:2}),
+  T('vog-06','Kaszmir','Wysoka moda','moda',{mf:'Bodoni Moda',mw:400,mi:true,mls:0,msz:230,sans:'Jost',hw:400,pal:6}),
 
-  /* --- Karta --- */
-  T('crd-01','Karta zawodnika','Karta','card',{mf:'Anton',mw:400,mls:-1,msz:64,nf:'Anton',nw:400,motif:'paski',pal:1}),
-  T('crd-02','Odznaka','Karta','card',{mf:'Archivo Black',mw:400,mls:-1,msz:58,nf:'Archivo Black',nw:400,motif:'gwiazdy',pal:0}),
-  T('crd-03','Legitymacja','Karta','card',{mf:'Space Grotesk',mw:700,mls:2,msz:56,nf:'Space Grotesk',nw:700,motif:'siatka',pal:8}),
-  T('crd-04','Trofeum','Karta','card',{mf:'Playfair Display',mw:900,mls:-1,msz:62,nf:'Anton',nw:400,motif:'laur',pal:2}),
+  T('edt-01','Numer kolekcjonerski','Wysoka moda','editorial',{mf:'Bodoni Moda',mw:400,mls:8,mu:true,msz:200,sans:'Jost',nw:400,ni:true,pal:5}),
+  T('edt-02','Cisza','Wysoka moda','editorial',{mf:'Marcellus',mw:400,mls:18,mu:true,msz:150,sans:'Jost',nw:400,pal:2}),
+  T('edt-03','Portret','Wysoka moda','editorial',{mf:'Prata',mw:400,mls:4,mu:true,msz:180,sans:'Inter',nw:400,ni:true,pal:9}),
 
-  /* --- Płyta --- */
-  T('alb-01','Debiut','Płyta','album',{mf:'Space Grotesk',mw:700,mu:true,mls:6,msz:52,nf:'Anton',nw:400,nu:true,pal:3}),
-  T('alb-02','Winyl','Płyta','album',{mf:'Oswald',mw:300,mu:true,mls:10,msz:46,nf:'Playfair Display',nw:900,ni:true,motif:'halftone',pal:9}),
-  T('alb-03','Koncert','Płyta','album',{mf:'Anton',mw:400,mu:true,mls:-1,msz:70,nf:'Anton',nw:400,nu:true,pal:6}),
-  T('alb-04','Składanka','Płyta','album',{mf:'Cormorant Garamond',mw:600,mu:true,mls:14,msz:48,nf:'Cormorant Garamond',nw:600,ni:true,light:true,pal:5}),
+  T('rnw-01','Wybieg','Wysoka moda','runway',{mf:'Bodoni Moda',mw:500,mls:2,mu:true,msz:190,sans:'Jost',nw:700,pal:5}),
+  T('rnw-02','Atelier lux','Wysoka moda','runway',{mf:'Marcellus',mw:400,mls:16,mu:true,msz:150,sans:'Jost',nw:400,ni:true,pal:2}),
+  T('rnw-03','Kampania','Wysoka moda','runway',{mf:'Bodoni Moda',mw:700,mls:-1,mu:true,msz:210,sans:'Inter',nw:700,overInk:'#fff',pal:0}),
+
+
+
 
   /* --- Kino --- */
   T('kin-01','Premiera kinowa','Kino','credits',{nf:'Anton',nw:400,mls:-2,pal:0}),
@@ -1769,10 +1774,8 @@ const GROUP_TAGS = {
   Pas:     ['nowoczesnie','design','portret','architektura','pionowo','minimalizm'],
   Siatka:  ['rodzina','wakacje','podsumowanie roku','zjazd','klasa','drużyna','grupa'],
   Zin:     ['młodzieżowo','nastolatek','kolaż','muzyka','zabawa','szkoła','studia','koncert'],
-  Bilet:   ['zaproszenie','wesele','impreza','bilet','wydarzenie','urodziny','karnet','wejściówka'],
-  Karta:   ['sport','drużyna','klub','odznaka','trofeum','legitymacja','dziecko','zawody'],
-  Płyta:   ['muzyka','koncert','zespół','płyta','lista utworów','prezent dla melomana'],
-  Kino:    ['film','plakat','premiera','kino','dramat','komedia','wieczór filmowy']
+  Kino:    ['film','plakat','premiera','kino','dramat','komedia','wieczór filmowy'],
+  'Wysoka moda': ['moda','vogue','elegancko','portret','sesja','ślub','uroda','luksus','didone','minimalizm','kobieta']
 };
 const EXTRA_TAGS = {
   'splendor-05':['premiera','debiut'], 'splendor-06':['ciepło','rodzice','mama'],
@@ -2163,6 +2166,9 @@ fillForm(); buildLines(); buildGallery(); syncPals(); readForm(); buildFontSelec
 HIST.stack = [snapshot()]; HIST.i = 0; syncHistory();
 if(document.fonts && document.fonts.ready){
   Promise.all([
+    '400 100px "Bodoni Moda"','700 100px "Bodoni Moda"','900 100px "Bodoni Moda"','italic 400 100px "Bodoni Moda"',
+    'italic 700 100px "Bodoni Moda"','400 100px "Prata"','400 100px "Marcellus"',
+    '300 40px "Jost"','500 40px "Jost"','700 40px "Jost"','italic 300 40px "Jost"',
     '900 100px "Playfair Display"','italic 900 100px "Playfair Display"','700 60px "Playfair Display"','italic 700 60px "Playfair Display"',
     '400 100px "Anton"','400 100px "Archivo Black"','400 100px "Bebas Neue"','400 100px "Abril Fatface"',
     '400 100px "DM Serif Display"','italic 400 100px "DM Serif Display"',
