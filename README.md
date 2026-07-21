@@ -5,7 +5,7 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 ## Co potrafi
 
 - **Zdjęcie główne + dwa kadry poboczne** — przeciągnij plik albo kliknij pole.
-- **Kadrowanie i obróbka lokalnie**: powiększenie, przesunięcie w obu osiach, jasność, kontrast, nasycenie, ziarno druku.
+- **Kadrowanie i obróbka lokalnie**: skala od 30% do 320% (a więc i pomniejszanie, nie tylko przybliżanie), przesunięcie w obu osiach, jasność, kontrast, nasycenie, ziarno druku. Przycisk „Zmieść całe zdjęcie" liczy potrzebną skalę z proporcji zdjęcia i kadru w danym szablonie. Margines, który zostaje wokół pomniejszonego zdjęcia, wypełnia rozmyte powiększenie tego samego kadru albo jednolity kolor.
 - **Pole na tytuł magazynu** plus dopisek, numer, data i cena.
 - **Do 10 haseł** — dodajesz, usuwasz, przestawiasz i edytujesz. Licznik pilnuje limitu, a szablon bierze tyle, ile mieści się bez ścisku, zaczynając od pierwszego.
 - **Edycja wprost na okładce** — kliknij dowolny napis albo kadr, żeby go zaznaczyć. Przeciąganie przesuwa, kwadrat w rogu skaluje, kółko myszy też skaluje, strzałki przesuwają co 2 px (z Shiftem co 10). Dla tekstu dochodzi wybór kroju i koloru. Kliknięcie w puste miejsce odznacza i przechodzi w tryb przesuwania zdjęcia głównego.

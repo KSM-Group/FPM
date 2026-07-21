@@ -137,8 +137,19 @@
         </div>
         <input type="file" id="fileA" accept="image/*" hidden>
         <input type="file" id="fileB" accept="image/*" hidden>
-        <label>Kadrowanie — powiększenie</label>
-        <input type="range" id="zoom" min="100" max="320" value="105">
+        <label>Kadrowanie — pomniejszenie i powiększenie</label>
+        <input type="range" id="zoom" min="30" max="320" value="105">
+        <div class="row" style="margin:-2px 0 4px">
+          <button id="zoomFit" class="mini ghost">Zmieść całe zdjęcie</button>
+          <button id="zoomFill" class="mini ghost">Wypełnij kadr</button>
+        </div>
+        <label>Co dookoła, gdy zdjęcie nie wypełnia kadru</label>
+        <select id="fitBg">
+          <option value="blur">rozmyte powiększenie zdjęcia</option>
+          <option value="paper">jasne tło</option>
+          <option value="color">kolor przewodni</option>
+          <option value="ink">ciemne tło</option>
+        </select>
         <div class="grid2">
           <div><label>Przesuń w poziomie</label><input type="range" id="ox" min="-100" max="100" value="0"></div>
           <div><label>Przesuń w pionie</label><input type="range" id="oy" min="-100" max="100" value="0"></div>
@@ -324,7 +335,7 @@ const S = {
   ],
   imgMain:null, imgA:null, imgB:null,
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
-  cut:null, bgMode:'blur', behindTitle:true, fast:false
+  cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur', fast:false
 };
 
 /* ---------- warstwa edycji ---------- */
@@ -503,11 +514,27 @@ function photo(img, x, y, w, h, opt){
   }
   ctx.filter = `${opt.blur?`blur(${opt.blur}px) `:''}brightness(${S.bri}%) contrast(${S.con}%) saturate(${S.duo?0:S.sat}%)`;
   const z = opt.zoom!==undefined?opt.zoom:1;
-  const r = Math.max(w/img.width, h/img.height)*z;
+  const cover = Math.max(w/img.width, h/img.height);
+  const r = cover*z;
   const dw = img.width*r, dh = img.height*r;
+  /* Przy pomniejszeniu zdjęcie nie wypełnia kadru — trzeba czymś zapełnić resztę.
+     Warstwy z wyciętą postacią to pomijają, bo pod spodem jest już własne tło. */
+  if((dw < w-0.5 || dh < h-0.5) && !opt.noFill){
+    const P = PALETTES[S.pal];
+    if(S.fitBg === 'blur'){
+      const bw = img.width*cover, bh = img.height*cover;
+      ctx.filter = `blur(30px) brightness(${S.bri}%) saturate(${S.duo?0:S.sat}%)`;
+      ctx.drawImage(img, x+(w-bw)/2, y+(h-bh)/2, bw, bh);
+    } else {
+      ctx.fillStyle = S.fitBg==='color' ? P.a : S.fitBg==='ink' ? P.ink : P.paper;
+      ctx.fillRect(x, y, w, h);
+    }
+    ctx.filter = `${opt.blur?`blur(${opt.blur}px) `:''}brightness(${S.bri}%) contrast(${S.con}%) saturate(${S.duo?0:S.sat}%)`;
+  }
+  /* wartość bezwzględna: przy pomniejszeniu bez niej przesuwanie działałoby odwrotnie */
   ctx.drawImage(img,
-    x + (w-dw)/2 - (opt.ox||0)/100*(dw-w)/2,
-    y + (h-dh)/2 - (opt.oy||0)/100*(dh-h)/2, dw, dh);
+    x + (w-dw)/2 - (opt.ox||0)/100*Math.abs(dw-w)/2,
+    y + (h-dh)/2 - (opt.oy||0)/100*Math.abs(dh-h)/2, dw, dh);
   ctx.filter = 'none';
   if(S.duo){
     const P = PALETTES[S.pal];
@@ -520,8 +547,9 @@ function photo(img, x, y, w, h, opt){
 
 /* Zdjęcie główne. Gdy osoba jest wycięta, tło i pierwszy plan idą osobno —
    dzięki temu winieta może wylądować pomiędzy nimi, jak na prawdziwej okładce. */
-let PENDING_FG = null, MAST_DONE = false;
+let PENDING_FG = null, MAST_DONE = false, LAST_MAIN = null;
 function mainPhoto(x, y, w, h, defer){
+  LAST_MAIN = {w, h};                    // potrzebne, by policzyć „zmieść całe zdjęcie”
   const opt = {zoom:S.zoom, ox:S.ox, oy:S.oy};
   if(!S.cut || S.bgMode==='off'){ photo(S.imgMain, x, y, w, h, opt); return; }
   const P = P_();
@@ -531,13 +559,13 @@ function mainPhoto(x, y, w, h, defer){
   /* Odkładamy pierwszy plan tylko wtedy, gdy winieta dopiero ma się narysować.
      W układach gazetowych tytuł idzie pierwszy, więc czekanie na niego
      wypchnęłoby osobę na sam wierzch okładki, na podpisy pod zdjęciem. */
-  if(defer === false || !S.behindTitle || MAST_DONE) photo(S.cut, x, y, w, h, opt);
+  if(defer === false || !S.behindTitle || MAST_DONE) photo(S.cut, x, y, w, h, {...opt, noFill:true});
   else PENDING_FG = {x,y,w,h};
 }
 function drawPendingFg(){
   if(!PENDING_FG) return;
   const f = PENDING_FG; PENDING_FG = null;
-  photo(S.cut, f.x, f.y, f.w, f.h, {zoom:S.zoom, ox:S.ox, oy:S.oy});
+  photo(S.cut, f.x, f.y, f.w, f.h, {zoom:S.zoom, ox:S.ox, oy:S.oy, noFill:true});
 }
 const thumbA = (x,y,w,h,o) => { if(S.imgA) E('kadr-A',x,y,()=>photo(S.imgA,x,y,w,h,{zoom:1.05,...o})); };
 const thumbB = (x,y,w,h,o) => { if(S.imgB) E('kadr-B',x,y,()=>photo(S.imgB,x,y,w,h,{zoom:1.05,...o})); };
@@ -1406,7 +1434,7 @@ cv.addEventListener('wheel', e=>{
   e.preventDefault();
   const d = e.deltaY>0 ? -0.04 : 0.04;
   if(SEL){ const t=ovr(SEL); t.s=Math.max(0.3,Math.min(2.6,t.s+d)); $('elSize').value=Math.round(t.s*100); }
-  else { S.zoom=Math.max(1,Math.min(3.2,S.zoom+d)); $('zoom').value=Math.round(S.zoom*100); }
+  else { S.zoom=Math.max(0.3,Math.min(3.2,S.zoom+d)); $('zoom').value=Math.round(S.zoom*100); }
   paint();
 }, {passive:false});
 
@@ -1515,13 +1543,30 @@ function readForm(){
   S.name=$('name').value; S.tagline=$('tagline').value;
   S.zoom=$('zoom').value/100; S.ox=+$('ox').value; S.oy=+$('oy').value;
   S.bri=+$('bri').value; S.con=+$('con').value; S.sat=+$('sat').value;
-  S.grain=$('grain').checked; S.duo=$('duo').checked;
+  S.grain=$('grain').checked; S.duo=$('duo').checked; S.fitBg=$('fitBg').value;
   S.scale=+$('scale').value; S.scrim=+$('scrim').value;
 }
-['masthead','sub','issue','date','price','name','tagline','zoom','ox','oy','bri','con','sat','grain','duo','scale','scrim']
+['masthead','sub','issue','date','price','name','tagline','zoom','ox','oy','bri','con','sat','grain','duo','fitBg','scale','scrim']
   .forEach(id=>{ const el=$(id); if(!el) return;
     el.addEventListener('input',()=>{readForm();paint();});
     el.addEventListener('change',()=>{readForm();paint();}); });
+/* Ile trzeba pomniejszyć, żeby całe zdjęcie zmieściło się w kadrze szablonu.
+   Zależy od proporcji zdjęcia i od miejsca, jakie daje mu układ — stąd liczone,
+   a nie wpisane na sztywno. */
+function containZoom(){
+  const img = S.imgMain;
+  if(!img || !LAST_MAIN) return 100;
+  const {w, h} = LAST_MAIN;
+  const cover   = Math.max(w/img.width, h/img.height);
+  const contain = Math.min(w/img.width, h/img.height);
+  return Math.max(30, Math.round(contain/cover*100));
+}
+$('zoomFit').onclick = ()=>{ setZoom(containZoom()); };
+$('zoomFill').onclick = ()=>{ setZoom(100); };
+function setZoom(v){
+  $('zoom').value = v; $('ox').value = 0; $('oy').value = 0;
+  readForm(); paint();
+}
 $('masthead').addEventListener('focus',()=>select('tytuł',false));
 $('name').addEventListener('focus',()=>select('nazwisko',false));
 $('tagline').addEventListener('focus',()=>select('podpis',false));
