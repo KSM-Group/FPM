@@ -16,6 +16,9 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 - **69 szablonów** w grupach: Wysoka moda, Glossy, Gazeta, Tabloid, Moda, Biznes, Plakat, Ramka, Pas, Siatka, Zin, Kino.
 - **10 motywów zdobniczych** nakładanych na dowolny układ: konfetti, art déco, raster drukarski, ukośne paski, taśma klejąca, pieczęć z datą, wieniec laurowy, gwiazdki, siatka techniczna. Do tego suwak siły motywu. Dziesięć kolorów przewodnich plus duoton. Przewijanie strzałkami ← →.
 - **Filtr grup zamiast wyszukiwarki** — dziesięć kafelków grup wystarcza, żeby ogarnąć 53 pozycje. Każdy szablon ma tagi z okazjami (`GROUP_TAGS` + `EXTRA_TAGS`), które podpowiadają w dymku kafelka i w opisie pod galerią, na co się nadaje.
+- **Zapis projektu na dysk** — przycisk „Zapisz projekt" tworzy plik `.fpm` z całym stanem **i osadzonymi zdjęciami**, więc jest samowystarczalny: można go przenieść na inny komputer albo odesłać klientowi do poprawek. Skróty: `Ctrl/Cmd + Shift + S` zapisuje, `Ctrl/Cmd + O` wczytuje.
+- **Dowolna liczba kadrów pobocznych** — dodajesz je hurtem (można zaznaczyć wiele plików naraz), usuwasz krzyżykiem, a każdy jest osobnym elementem do przeciągnięcia po okładce.
+- **Przezroczystość elementu** — suwak w pasku edycji, od 10 do 100%, działa na tekstach, kadrach i emblematach.
 - **Cofanie i ponawianie** — `Ctrl/Cmd + Z` oraz `Ctrl/Cmd + Shift + Z`, plus przyciski ↺ ↻ w belce dla dotyku. Historia trzyma 60 kroków: teksty, ustawienia, wybrany szablon i wszystkie przesunięcia elementów. Zdjęcia zostają poza migawką, więc cofanie nie kasuje wgranego pliku.
 - **Podgląd w oprawie** (przycisk „Podgląd w ramce" w górnej belce) — ta sama okładka pokazana tak, jak trafi do obdarowanego: w ramce na ścianie, w ramce na półce albo jako magazyn leżący na blacie. Cztery kolory ramy, passe-partout, odbicie w szkle i cień. Osobny plik PNG do wysłania komuś przed drukiem.
 - **Eksport**: PNG, JPG oraz PNG 2× (2480 × 3496 px, czyli A4 przy ~300 dpi). Ramka zaznaczenia nigdy nie trafia do pliku. Skrót `Ctrl/Cmd + S`.
@@ -100,6 +103,8 @@ Szablony nie są osobnymi plikami. Jest **10 archetypów układu** — funkcji r
 | `moda` | okładka modowa: didone przez całą szerokość, hasła w dwóch łamach, temat okładkowy kursywą |
 | `editorial` | numer kolekcjonerski: winieta, dużo powietrza, jedno albo dwa hasła |
 | `runway` | zdjęcie w białej ramie, winieta wchodząca na jego krawędź, hasła w pasie pod spodem |
+| `hero` | kartka urodzinowa: kostium rysowany w kodzie — szybki podgląd, ale zawsze zostanie ilustracją |
+| `photo` | kartka na **formatce fotograficznej**: montaż głowy na zdjęciu postaci, z dopasowaniem światła i cieniem kontaktowym |
 
 Nowy szablon to jedna linijka w tablicy `TEMPLATES`:
 
@@ -138,6 +143,50 @@ Trzy rzeczy budują ten charakter. **Didone** o wysokim kontraście grubości kr
 
 Do tego geometryczny grotesk Jost jako przeciwwaga dla szeryfów, ustawiany osobno w polu `sans` każdego szablonu.
 
+## Kartki urodzinowe i prawa do wizerunku postaci
+
+Grupa „Kartka" celowo **nie zawiera żadnych postaci z Marvela, DC, Minecrafta ani innych franczyz**. Nie ma tu też przerobionych logo — modyfikacja cudzego znaku nie usuwa problemu, tylko dokłada dowód, że oryginał był punktem wyjścia. Nie istnieje próg w rodzaju „wystarczy zmienić 30%".
+
+Zamiast tego kostiumy są **rysowane proceduralnie w kodzie**, z archetypów, na które nikt nie ma monopolu: peleryna z kołnierzem, hełm kosmonauty z szybą, otwarty hełm rycerski. W repozytorium nie ma ani jednego cudzego pliku graficznego.
+
+Emblemat na piersi nosi **inicjał albo wiek dziecka**, pobierany z pola „Wiek". W praktyce działa lepiej niż cudze logo, bo kartka jest o obdarowanym.
+
+### Realizm bierze się ze zdjęcia, nie z kodu
+
+Kształty rysowane na canvasie nigdy nie będą fotorealistyczne — można je docieniować, ale pozostaną ilustracją. Dlatego układ `photo` przyjmuje **formatkę**: zdjęcie ciała w kostiumie, własne albo ze stocku. Cały realizm pochodzi z tego pliku, a aplikacja odpowiada za trzy rzeczy, które decydują, czy montaż wygląda prawdziwie:
+
+1. **Zgranie światła** — `imageStats()` liczy średnią jasność i nasycenie formatki oraz głowy, a `gradedHead()` wyrównuje głowę do formatki. Współczynniki są ograniczone do 0,6–1,7 dla jasności i 0,7–1,5 dla nasycenia, żeby skrajna różnica ekspozycji nie wypaliła twarzy. Dochodzi delikatna zasłona w średnim kolorze formatki, nałożona przez `source-atop`, czyli tylko na pikselach głowy — to wyrównuje temperaturę barwową.
+2. **Cień kontaktowy** — miękka elipsa rysowana trybem `multiply` w miejscu styku szyi z ubraniem. Bez niej głowa leży obok kostiumu; z nią jest w nim osadzona. To pojedynczy detal, który robi największą różnicę.
+3. **Warstwa wierzchnia** — opcjonalny PNG z przezroczystością (kołnierz, hełm, kaptur) rysowany po głowie.
+
+Suwaki ustawiają punkt szyi, wielkość i przechylenie głowy, siłę cienia oraz stopień zgrania kolorystyki. Głowa jest zwykłym ruchomym elementem, więc można ją też dociągnąć myszą.
+
+### Formatka, która ma własną głowę
+
+Większość formatek — własnych zdjęć, grafik ze stocku czy generowanych — przedstawia całą postać razem z głową. Aplikacja radzi sobie z tym sama:
+
+1. Po wgraniu `analyseBody()` szuka twarzy na formatce.
+2. `patchOutHead()` zamalowuje ją łatą w kolorze tła. Kolor jest próbkowany z pierścienia wokół głowy, osobno u góry i u dołu, więc łata zachowuje gradient tła zamiast być jednolitą plamą; rozmycie daje miękką krawędź.
+3. Punkt szyi, wielkość głowy i skala ustawiają się automatycznie z ramki wykrytej twarzy — tą samą matematyką, którą wycinana jest głowa dziecka, więc obie zgadzają się co do proporcji.
+
+Przełącznik „zamaluj głowę z formatki" pozwala to cofnąć, gdy formatka jest już bezgłowa. Łata działa najlepiej na gładkim tle studyjnym; przy tle z fakturą lepiej przygotować formatkę bez głowy w edytorze graficznym.
+
+### Emblemat na piersi
+
+Kostiumy ze stocku i z generatorów obrazu bardzo często noszą na piersi znak łudząco podobny do cudzego logo — to najczęstszy problem prawny takich plików. Emblemat go zasłania: koło, tarcza albo gwiazda z wiekiem lub inicjałem dziecka, w kolorach palety. Jest zwykłym ruchomym elementem, więc ustawia się go przeciągnięciem.
+
+**Jak zrobić dobrą formatkę:** ujęcie z przodu, równomierne światło, jednolite tło, kostium bez cudzych znaków firmowych. Jeśli formatka ma własną głowę, przygotuj drugi plik z kołnierzem albo kapturem jako warstwę wierzchnią.
+
+### Jak twarz trafia pod kostium (wariant rysowany)
+
+1. `cutBackground()` oddziela dziecko od tła (Selfie Segmenter).
+2. `fitHead()` znajduje twarz (BlazeFace) i wycina głowę z zapasem: sporo nad czubkiem, mniej po bokach, kawałek szyi pod brodą.
+3. `drawCostume()` rysuje w trzech warstwach — najpierw plecy (peleryna, płaszcz), potem **głowa**, a na końcu warstwa wierzchnia: kołnierz, szyba hełmu albo obręcz zbroi.
+
+Ta trzecia warstwa jest sednem efektu. Bez niej głowa leży *na* kostiumie jak naklejka; z nią siedzi *w* nim.
+
+Jeśli twarz nie zostanie wykryta, kostium dostaje okrągły kadr ze zdjęcia, a przy braku zdjęcia — czytelne pole „TU TWARZ".
+
 ## Motywy
 
 Motyw to warstwa zdobnicza rysowana już na gotowym układzie, w `drawMotif()`, tuż przed ziarnem druku. Dzięki temu nie musi nic wiedzieć o archetypie i działa z każdym szablonem — 69 układów razy 10 motywów daje znacznie więcej kombinacji niż sama lista szablonów.
@@ -159,6 +208,18 @@ Każdy ruchomy element jest opakowany w `E(id, kotwicaX, kotwicaY, fn)`. Ta funk
 1. nakłada zapisane przesunięcie, skalę, krój i kolor (`OVR[id]`),
 2. przechwytuje wszystko, co `fn()` narysuje, i liczy z tego obrys w układzie ekranu — dzięki temu trafienie kursorem działa też dla tekstu obróconego o 90° albo przekrzywionej naklejki,
 3. dopisuje obrys do tablicy `HIT`, po której idzie test trafienia od wierzchu w dół.
+
+### Dowolna liczba kadrów pobocznych
+
+Kadry trzyma tablica `S.frames`, a układów jest szesnaście — opisywanie pozycji każdego kadru w każdym z nich byłoby nie do utrzymania. Zamiast tego `thumbA()` i `thumbB()` wyznaczają w danym układzie punkt startowy i **kierunek**, a pozostałe kadry układają się wzdłuż tej samej osi z tym samym krokiem. Gdy rząd dobiegnie krawędzi płótna, kolejne schodzą na oś prostopadłą; gdy i tam braknie miejsca, trafiają do pasa u dołu okładki. Nic nie znika po cichu — sprawdzone renderem dla 1, 2, 5, 7 i 12 kadrów na wszystkich 78 szablonach.
+
+Wielkość kadrów ustawia osobny suwak (50–220%), skalujący je względem lewego górnego rogu, żeby powiększony kadr nie wypadał poza układ.
+
+### Format .fpm
+
+Zwykły JSON: `{app, version, saved, state, images}`. `state` to ta sama migawka, której używa historia zmian, a `images` zawiera zdjęcie główne, wycięcie tła, głowę, formatkę i wszystkie kadry poboczne jako dataURL. Pole `version` pozwoli w przyszłości wczytywać starsze projekty; plik z nowszej wersji jest odrzucany z czytelnym komunikatem.
+
+Kadry poboczne mają dodatkowe zabezpieczenie: `E()` odnotowuje, że kadr został narysowany, a `render()` na koniec sprawdza ten znacznik. Jeśli układ o kadrach zapomniał, trafiają w lewy dolny róg — lepszy niedopracowany kadr niż wgrane zdjęcie, które znika bez śladu.
 
 Ważne: **wszystko, co należy do elementu, musi trafić do wnętrza `E()`** — biała podkładka pod kadrem, obwódka, akcentowa kreska pod hasłem. Rysunek zostawiony na zewnątrz nie przesunie się razem z elementem i po przeciągnięciu zostanie w starym miejscu jako pusty prostokąt. Do zgłaszania obrysu takiej dekoracji służy `markRect()`.
 

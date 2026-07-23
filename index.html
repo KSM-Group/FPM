@@ -70,6 +70,10 @@
   .thumbs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   .thumb{position:relative;aspect-ratio:1;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mute);text-align:center;cursor:pointer;padding:6px}
   .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb .del{position:absolute;top:3px;right:3px;background:#000000b0;color:#fff;border:0;
+              border-radius:50%;width:22px;height:22px;padding:0;font-size:13px;line-height:1;letter-spacing:0}
+  .thumb .num{position:absolute;bottom:3px;left:4px;background:#000000b0;color:#fff;
+              font-family:Oswald,sans-serif;font-size:10px;padding:1px 5px;border-radius:3px}
   .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
   .sw{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}
   .sw[aria-pressed="true"]{border-color:var(--paper)}
@@ -107,6 +111,9 @@
       <button id="btnUndo" class="ghost" title="Cofnij (Ctrl+Z)">↺</button>
       <button id="btnRedo" class="ghost" title="Ponów (Ctrl+Shift+Z)">↻</button>
       <button id="btnRandom" class="ghost">Losuj</button>
+      <button id="btnSave" class="ghost" title="Zapisz projekt na dysk">Zapisz projekt</button>
+      <button id="btnOpen" class="ghost" title="Wczytaj projekt z dysku">Wczytaj</button>
+      <input type="file" id="fileProject" accept=".fpm,application/json" hidden>
       <button id="btnMock" class="ghost">Podgląd w ramce</button>
       <button id="btnPng" class="primary">Pobierz PNG</button>
     </div>
@@ -140,13 +147,14 @@
       <div class="body">
         <div class="drop" id="dropMain"><strong>Zdjęcie główne</strong>Kliknij albo upuść plik (JPG, PNG, WEBP)</div>
         <input type="file" id="fileMain" accept="image/*" hidden>
-        <label>Kadry poboczne</label>
-        <div class="thumbs">
-          <div class="thumb" id="thA">+ kadr A</div>
-          <div class="thumb" id="thB">+ kadr B</div>
+        <label>Kadry poboczne — wielkość na okładce</label>
+        <input type="range" id="thumbScale" min="50" max="220" value="100">
+        <div class="thumbs" id="frameList"></div>
+        <input type="file" id="fileFrames" accept="image/*" multiple hidden>
+        <div class="row" style="margin-top:10px">
+          <button id="btnAddFrame" class="mini">+ dodaj kadry</button>
+          <span class="hint" style="margin:0" id="frameCount"></span>
         </div>
-        <input type="file" id="fileA" accept="image/*" hidden>
-        <input type="file" id="fileB" accept="image/*" hidden>
         <label>Kadrowanie — pomniejszenie i powiększenie</label>
         <input type="range" id="zoom" min="30" max="320" value="105">
         <div class="row" style="margin:-2px 0 4px">
@@ -182,6 +190,7 @@
       <div class="body">
         <div class="row">
           <button id="btnCut" class="primary">Wytnij osobę ze zdjęcia</button>
+          <button id="btnHead" class="ghost">Dopasuj głowę do kostiumu</button>
           <button id="btnCutOff" class="ghost">Przywróć oryginał</button>
         </div>
         <div class="status" id="cutStatus"></div>
@@ -201,6 +210,43 @@
           <input type="range" id="feather" min="0" max="12" value="3">
         </div>
         <p class="hint">Model liczy się w Twojej przeglądarce — zdjęcie nigdzie nie jest wysyłane. Pierwsze uruchomienie pobiera około 2 MB i chwilę trwa, kolejne są natychmiastowe. Wymaga internetu tylko przy pierwszym użyciu.</p>
+      </div>
+    </section>
+
+    <section data-open="1" class="press">
+      <h2>Formatka postaci (zdjęcie) <span class="chev">▾</span></h2>
+      <div class="body">
+        <div class="drop" id="dropBody"><strong>Formatka — ciało w kostiumie</strong>Zdjęcie postaci bez głowy albo z głową do zasłonięcia</div>
+        <input type="file" id="fileBody" accept="image/*" hidden>
+        <div class="drop" id="dropOver" style="margin-top:8px"><strong>Warstwa wierzchnia (opcjonalnie)</strong>PNG z przezroczystością: kołnierz, hełm, kaptur — nakłada się na głowę</div>
+        <input type="file" id="fileOver" accept="image/*" hidden>
+        <div class="grid2">
+          <div><label>Szyja — w poziomie</label><input type="range" id="neckX" min="0" max="100" value="50"></div>
+          <div><label>Szyja — w pionie</label><input type="range" id="neckY" min="0" max="100" value="22"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Wielkość głowy</label><input type="range" id="headW" min="5" max="60" value="22"></div>
+          <div><label>Przechylenie głowy</label><input type="range" id="headRot" min="-25" max="25" value="0"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Cień pod brodą</label><input type="range" id="chinSh" min="0" max="100" value="55"></div>
+          <div><label>Zgranie kolorystyki</label><input type="range" id="toneMix" min="0" max="100" value="75"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <label style="margin:0"><input type="checkbox" id="hideBodyHead" checked> zamaluj głowę z formatki</label>
+        </div>
+        <label>Emblemat na piersi — zasłania cudze logo</label>
+        <div class="grid3">
+          <div><select id="emShape">
+            <option value="none">bez emblematu</option>
+            <option value="circle">koło</option>
+            <option value="shield">tarcza</option>
+            <option value="star">gwiazda</option>
+          </select></div>
+          <div><input type="text" id="emText" maxlength="3" placeholder="wiek"></div>
+          <div><input type="range" id="emSize" min="6" max="30" value="14"></div>
+        </div>
+        <p class="hint">Formatkę zrób sama/sam albo kup na stocku — musi to być zdjęcie, jeśli efekt ma wyglądać realnie. Najlepiej działa ujęcie z przodu, przy świetle podobnym do tego na zdjęciu dziecka.</p>
       </div>
     </section>
 
@@ -235,9 +281,10 @@
           <div><label>Dopisek</label><input type="text" id="sub"></div>
           <div><label>Numer</label><input type="text" id="issue"></div>
         </div>
-        <div class="grid2">
+        <div class="grid3">
           <div><label>Data</label><input type="text" id="date"></div>
           <div><label>Cena</label><input type="text" id="price"></div>
+          <div><label>Wiek</label><input type="text" id="age" maxlength="3"></div>
         </div>
         <div class="grid2">
           <div><label>Bohater numeru</label><input type="text" id="name"></div>
@@ -263,7 +310,7 @@
   <div class="stage">
     <div class="editbar" id="editbar">
       <h3 id="editTitle">Element</h3>
-      <div class="fields">
+      <div class="fields" style="grid-template-columns:1.1fr .9fr auto .9fr auto">
         <div>
           <label style="margin-top:0">Krój pisma</label>
           <select id="elFont"><option value="">jak w szablonie</option></select>
@@ -275,6 +322,10 @@
         <div>
           <label style="margin-top:0">Kolor</label>
           <input type="color" id="elColor" value="#ffffff">
+        </div>
+        <div>
+          <label style="margin-top:0">Przezroczystość</label>
+          <input type="range" id="elOpacity" min="10" max="100" value="100">
         </div>
         <div class="row">
           <button id="elReset" class="mini ghost">Przywróć</button>
@@ -361,10 +412,14 @@ const S = {
     'Rozmowa z sąsiadem, który wie lepiej',
     'Człowiek, który naprawia wszystko taśmą klejącą'
   ],
-  imgMain:null, imgA:null, imgB:null,
+  imgMain:null, frames:[],
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
-  cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur',
-  motif:'none', motifStr:70, fast:false
+  cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur', thumbScale:100,
+  motif:'none', motifStr:70, age:'7', head:null,
+  body:null, bodyRaw:null, bodyOver:null, bodyFace:null, hideBodyHead:true,
+  neckX:50, neckY:22, headW:22, headRot:0, chinSh:55, toneMix:75,
+  emShape:'none', emText:'', emSize:14,
+  fast:false
 };
 
 /* ---------- warstwa edycji ---------- */
@@ -373,7 +428,7 @@ let HIT = [];                // obrysy z ostatniego rysowania
 let TRACK = null;            // zbieranie obrysu bieżącego elementu
 let FO = null, CO = null;    // nadpisany krój / kolor
 let SEL = null;              // zaznaczony element
-const ovr = id => (OVR[id] || (OVR[id] = {dx:0, dy:0, s:1, fam:'', col:''}));
+const ovr = id => (OVR[id] || (OVR[id] = {dx:0, dy:0, s:1, fam:'', col:'', op:100}));
 const isMoved = o => o.dx||o.dy||o.s!==1||o.fam||o.col;
 
 /* ---------- powtarzalny „przypadek” ---------- */
@@ -395,6 +450,7 @@ function markRect(x,y,w,h){
 function E(id, ax, ay, fn){
   const t = ovr(id);
   ctx.save();
+  if(t.op !== undefined && t.op < 100) ctx.globalAlpha *= t.op/100;
   ctx.translate(ax+t.dx, ay+t.dy); ctx.scale(t.s, t.s); ctx.translate(-ax, -ay);
   const prevT = TRACK, prevF = FO, prevC = CO;
   TRACK = {x0:1e9, y0:1e9, x1:-1e9, y1:-1e9};
@@ -406,6 +462,7 @@ function E(id, ax, ay, fn){
     TRACK = prevT; FO = prevF; CO = prevC;
     ctx.restore();
   }
+  if(id.startsWith('kadr-')) THUMBS.any = true;
   if(id==='tytuł'){ MAST_DONE = true; drawPendingFg(); }   // winieta gotowa → osoba na wierzch
   return out;
 }
@@ -580,6 +637,15 @@ function photo(img, x, y, w, h, opt){
 /* Zdjęcie główne. Gdy osoba jest wycięta, tło i pierwszy plan idą osobno —
    dzięki temu winieta może wylądować pomiędzy nimi, jak na prawdziwej okładce. */
 let PENDING_FG = null, MAST_DONE = false, LAST_MAIN = null;
+let THUMBS = {any:false};
+/* Gdyby jakiś układ zapomniał o kadrach pobocznych, trafiają w lewy dolny róg.
+   Lepiej niepozycjonowany kadr niż wgrane zdjęcie, które znika bez słowa. */
+function drawStrayThumbs(){
+  if(THUMBS.any || !S.frames.length) return;
+  const sz = 128, y = H - sz - 76;
+  thumbA(60, y, sz, sz, {pad:5});
+  thumbB(60 + sz + 14, y, sz, sz, {pad:5});
+}
 function mainPhoto(x, y, w, h, defer){
   LAST_MAIN = {w, h};                    // potrzebne, by policzyć „zmieść całe zdjęcie”
   const opt = {zoom:S.zoom, ox:S.ox, oy:S.oy};
@@ -618,8 +684,57 @@ function drawThumb(img, x, y, w, h, o){
     else ctx.strokeRect(x, y, w, h);
   }
 }
-const thumbA = (x,y,w,h,o) => { if(S.imgA) E('kadr-A',x,y,()=>drawThumb(S.imgA,x,y,w,h,o)); };
-const thumbB = (x,y,w,h,o) => { if(S.imgB) E('kadr-B',x,y,()=>drawThumb(S.imgB,x,y,w,h,o)); };
+/* Suwak skaluje kadr względem jego lewego górnego rogu, żeby powiększanie
+   nie wypychało go poza układ, w którym został umieszczony. */
+const tsc = () => (S.thumbScale || 100) / 100;
+
+/* Kadrów może być dowolnie wiele, a układów jest szesnaście — więc zamiast
+   opisywać pozycję każdego kadru w każdym układzie, czytamy z dwóch pierwszych
+   punkt startowy i kierunek, a resztę układamy wzdłuż tej samej osi. */
+let SLOT_A = null;
+function paintFrame(i, x, y, w, h, o){
+  const img = S.frames[i];
+  if(!img) return;
+  E('kadr-'+i, x, y, ()=>drawThumb(img, x, y, w*tsc(), h*tsc(), o));
+}
+function thumbA(x, y, w, h, o){
+  SLOT_A = {x, y, w, h, o};
+  paintFrame(0, x, y, w, h, o);
+}
+function thumbB(x, y, w, h, o){
+  paintFrame(1, x, y, w, h, o);
+  if(S.frames.length < 3) return;
+  /* krok między pierwszym a drugim kadrem wyznacza rytm dla pozostałych */
+  let stepX = SLOT_A ? x - SLOT_A.x : w + 14;
+  let stepY = SLOT_A ? y - SLOT_A.y : 0;
+  if(!stepX && !stepY) stepX = w + 14;
+  /* oś prostopadła: gdy rząd dobiegnie krawędzi płótna, kadry schodzą niżej */
+  const len = Math.hypot(stepX, stepY) || 1;
+  const wrapX = -stepY/len * (h*tsc() + 14), wrapY = stepX/len * (h*tsc() + 14);
+  const sw = w*tsc(), sh = h*tsc();
+  const fits = (px,py) => px > -sw*0.5 && py > -sh*0.5 && px < W-sw*0.5 && py < H-sh*0.5;
+  let cx = x, cy = y, row = 0, overflow = [];
+  for(let i=2; i<S.frames.length; i++){
+    cx += stepX; cy += stepY;
+    if(!fits(cx, cy)){
+      row++;
+      cx = x + wrapX*row; cy = y + wrapY*row;
+    }
+    if(fits(cx, cy)) paintFrame(i, cx, cy, w, h, o);
+    else overflow.push(i);      // brak miejsca wzdłuż osi układu
+  }
+  /* Kadry, które nie zmieściły się w rytmie układu, dostają własny pas u dołu.
+     Każdy jest osobnym elementem, więc można je stamtąd rozciągnąć po okładce. */
+  if(overflow.length){
+    const bs = Math.min(sw, 118);
+    const cols = Math.max(1, Math.floor((W - 96) / (bs + 12)));
+    overflow.forEach((idx, k)=>{
+      const px = 48 + (k % cols) * (bs + 12);
+      const py = H - bs - 40 - Math.floor(k / cols) * (bs + 12);
+      paintFrame(idx, px, py, bs/tsc(), bs/tsc(), o);
+    });
+  }
+}
 
 function scrimTop(h,s){
   const g=ctx.createLinearGradient(0,0,0,h);
@@ -733,11 +848,11 @@ function archPress(sp){
   const cap=q.next();
   if(cap){ const yy=cy; cy = E('line-'+cap.i, cx, yy, ()=>text(cap.t,{x:cx,y:yy,size:18*k,lh:24*k,family:'Inter',weight:400,color:sp.dark?'#A8A29A':'#4A423A',maxW:cw}))+26; }
 
-  if(S.imgA||S.imgB){
+  {
     const gw=(cw-18)/2, gh=170;
+    if(!S.frames[0]) photo(null,cx,cy,gw,gh,{dark:sp.dark});
+    if(!S.frames[1]) photo(null,cx+gw+18,cy,gw,gh,{dark:sp.dark});
     thumbA(cx,cy,gw,gh,{dark:sp.dark}); thumbB(cx+gw+18,cy,gw,gh,{dark:sp.dark});
-    if(!S.imgA) photo(null,cx,cy,gw,gh,{dark:sp.dark});
-    if(!S.imgB) photo(null,cx+gw+18,cy,gw,gh,{dark:sp.dark});
     cy+=gh+20;
     const c1=q.next(), c2=q.next();
     if(c1){ const yy=cy; E('line-'+c1.i,cx,yy,()=>text(c1.t,{x:cx,y:yy,size:16*k,lh:21*k,family:'Inter',weight:500,color:ink,maxW:gw})); }
@@ -894,6 +1009,8 @@ function archPoster(sp){
   const after = E('nazwisko', W/2, ny, ()=>text(S.name,{x:W/2,y:ny,size:ns,lh:ns,family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni,color:'#fff',align:'center',maxW:W-2*M}));
   E('podpis', W/2, after+18, ()=>text(S.tagline,{x:W/2,y:after+18,size:26*k,family:'Oswald',weight:300,ls:6,color:P.b,align:'center',upper:true,maxW:W-200}));
 
+  const tz=142;
+  thumbA(M, H/2-tz, tz, tz, {pad:5}); thumbB(M, H/2-tz+tz+14, tz, tz, {pad:5});
   const strip=q.take(sp.stripCount||4);
   if(strip.length){
     const bandY=sp.low?H-190:H-210;
@@ -924,6 +1041,9 @@ function archFrame(sp){
   E('nazwisko', W/2, py+ph-56, ()=>text(S.name,{x:W/2,y:py+ph-56,size:ns,family:sp.nf,weight:sp.nw,upper:sp.nu,italic:sp.ni,color:sp.bgAccent?P.a:P.paper,align:'center'}));
   E('podpis', W/2, py+ph-24, ()=>text(S.tagline,{x:W/2,y:py+ph-24,size:17*k,family:'Oswald',weight:500,ls:4,color:sp.bgAccent?'#333':P.b,align:'center',upper:true,maxW:pw-40}));
 
+  const tz=124;
+  thumbA(M+58, py+ph-142-tz, tz, tz, {pad:5});
+  thumbB(M+58+tz+14, py+ph-142-tz, tz, tz, {pad:5});
   const cy=py+ph+52, cw=(pw-40)/2;
   for(let c=0;c<2;c++) column(q,{x:M+30+c*(cw+40),y:cy,yMax:H-90,maxW:cw,size:19*k,lh:25*k,family:sp.lf,weight:sp.lw,color:ink,upper:sp.lu,gap:20,
     marker:(x,yy)=>{ctx.fillStyle=sp.bgAccent?'#ffffff66':P.a;ctx.fillRect(x,yy-22,18,3);}});
@@ -1022,8 +1142,15 @@ function archZine(sp){
   const after = E('nazwisko', M, H-230, ()=>text(S.name,{x:M,y:H-230,size:ns,lh:ns*0.96,family:sp.nf,weight:sp.nw,upper:sp.nu,color:ink,maxW:W-2*M}));
   E('podpis', M, after+14, ()=>text(S.tagline,{x:M,y:after+14,size:23*k,family:'Space Grotesk',weight:500,ls:2,color:P.a,maxW:W-2*M}));
   const sz=120;
-  if(S.imgA) E('kadr-A', W-M-sz, H-560, ()=>{ ctx.save(); ctx.translate(W-M-sz,H-560); ctx.rotate(0.06); photo(S.imgA,0,0,sz,sz,{zoom:1.05}); ctx.restore(); });
-  if(S.imgB) E('kadr-B', M, H-560, ()=>{ ctx.save(); ctx.translate(M,H-560); ctx.rotate(-0.05); photo(S.imgB,0,0,sz,sz,{zoom:1.05}); ctx.restore(); });
+  S.frames.forEach((img,i)=>{
+    const rot = i%2 ? -0.05 : 0.06;
+    const fx = i%2 ? M + Math.floor(i/2)*(sz+14) : W-M-sz - Math.floor(i/2)*(sz+14);
+    E('kadr-'+i, fx, H-560, ()=>{
+      ctx.save(); ctx.translate(fx, H-560); ctx.rotate(rot);
+      photo(img, 0, 0, sz*tsc(), sz*tsc(), {zoom:1.05});
+      ctx.restore();
+    });
+  });
   reseed(S.masthead+S.name);
   if(sp.barcode) barcodeAt(W-M-150,H-70,130,34);
 }
@@ -1077,6 +1204,9 @@ function archModa(sp){
   fashionLines(q,{x:M,      y:colTop,    yMax:colBottom, maxW:colW, size:23*k, ls:1.6, sans:sp.sans, color:ink, align:'left'});
   fashionLines(q,{x:W-M,    y:colTop+40, yMax:colBottom, maxW:colW, size:23*k, ls:1.6, sans:sp.sans, color:ink, align:'right'});
 
+  const tz=116;
+  thumbA(M, H-520, tz, tz, {pad:4}); thumbB(M+tz+12, H-520, tz, tz, {pad:4});
+
   /* temat okładkowy: didone kursywą, największe hasło na stronie */
   const hero = q.next();
   let hy = H-360;
@@ -1114,6 +1244,8 @@ function archEditorial(sp){
     return b;
   });
 
+  const tz=104;
+  thumbA(M+16, H-236, tz, tz, {pad:4}); thumbB(W-M-16-tz, H-236, tz, tz, {pad:4});
   const one = q.next();
   if(one) E('line-'+one.i, W/2, H-150, ()=>text(one.t,{x:W/2,y:H-150,size:19*k,lh:26*k,family:sp.sans,weight:300,ls:4,color:'#fff',align:'center',upper:true,maxW:W-300}));
   const two = q.next();
@@ -1142,9 +1274,428 @@ function archRunway(sp){
   E('podpis', W-M, py+ph+82, ()=>text(S.tagline,{x:W-M,y:py+ph+82,size:15*k,family:sp.sans,weight:500,ls:6,color:P.a,align:'right',upper:true,maxW:520}));
   rule(M, py+ph+110, W-2*M, ink+'33', 1);
 
+  const tz=118;
+  thumbA(W-M-2*tz-14, py+22, tz, tz, {pad:5}); thumbB(W-M-tz, py+22, tz, tz, {pad:5});
   const cw=(W-2*M-64)/3;
   for(let c=0;c<3;c++)
     fashionLines(q,{x:M+c*(cw+32), y:py+ph+156, yMax:H-70, maxW:cw, size:15*k, ls:1.4, sans:sp.sans, color:ink, align:'left', gap:26});
+  reseed(S.masthead+S.name);
+}
+
+/* ---------- kostiumy rysowane proceduralnie ----------
+   Żadnych cudzych plików ani znaków firmowych: peleryna, hełm i zbroja to
+   archetypy, których nikt nie ma na wyłączność. Emblemat nosi inicjał albo
+   wiek dziecka — jest o nim, a nie o cudzej wytwórni. */
+function heroHead(cx, hy, hw){
+  if(S.head){
+    const r = hw / S.head.width;
+    ctx.drawImage(S.head, cx - hw/2, hy - S.head.height*r, hw, S.head.height*r);
+  } else if(S.cut || S.imgMain){
+    photo(S.cut || S.imgMain, cx-hw/2, hy-hw*1.15, hw, hw*1.15, {circle:true, zoom:1.1, ox:S.ox, oy:S.oy, noFill:true});
+  } else {
+    ctx.fillStyle='#C9C4BA';
+    ctx.beginPath(); ctx.arc(cx, hy-hw*0.5, hw*0.5, 0, 7); ctx.fill();
+    setFont({family:'Oswald',weight:500,size:16,ls:2});
+    ctx.fillStyle='#7C776E'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('TU TWARZ', cx, hy-hw*0.5); clearLS();
+  }
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+function drawCostume(cx, topY, w, kind){
+  const P = P_();
+  const torsoW = w, torsoH = w*1.15, hw = w*0.52;
+  const shoulderY = topY + hw*0.18;
+  const emblem = (S.age || '').trim() || (S.name.trim()[0] || '★');
+
+  if(kind === 'cape'){
+    ctx.fillStyle = P.b;                                   // peleryna
+    ctx.beginPath();
+    ctx.moveTo(cx-torsoW*0.44, shoulderY);
+    ctx.quadraticCurveTo(cx-torsoW*1.15, shoulderY+torsoH*0.9, cx-torsoW*0.62, shoulderY+torsoH*1.32);
+    ctx.lineTo(cx+torsoW*0.62, shoulderY+torsoH*1.32);
+    ctx.quadraticCurveTo(cx+torsoW*1.15, shoulderY+torsoH*0.9, cx+torsoW*0.44, shoulderY);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.12)';
+    ctx.fillRect(cx-torsoW*0.10, shoulderY, torsoW*0.20, torsoH*1.3);
+  }
+  if(kind === 'knight'){
+    ctx.fillStyle = P.b;                                   // płaszcz
+    roundRect(cx-torsoW*0.78, shoulderY+10, torsoW*1.56, torsoH*1.12, 40); ctx.fill();
+  }
+
+  heroHead(cx, shoulderY + hw*0.22, hw);                   // GŁOWA — warstwa pod strojem
+
+  /* tors */
+  ctx.fillStyle = P.a;
+  ctx.beginPath();
+  ctx.moveTo(cx-torsoW*0.46, shoulderY+hw*0.10);
+  ctx.quadraticCurveTo(cx, shoulderY-hw*0.10, cx+torsoW*0.46, shoulderY+hw*0.10);
+  ctx.lineTo(cx+torsoW*0.36, shoulderY+torsoH);
+  ctx.lineTo(cx-torsoW*0.36, shoulderY+torsoH);
+  ctx.closePath(); ctx.fill();
+
+  /* ramiona */
+  ctx.fillStyle = P.a;
+  roundRect(cx-torsoW*0.70, shoulderY+hw*0.16, torsoW*0.26, torsoH*0.78, torsoW*0.13); ctx.fill();
+  roundRect(cx+torsoW*0.44, shoulderY+hw*0.16, torsoW*0.26, torsoH*0.78, torsoW*0.13); ctx.fill();
+  ctx.fillStyle = P.b;
+  roundRect(cx-torsoW*0.72, shoulderY+torsoH*0.70, torsoW*0.30, torsoH*0.22, torsoW*0.12); ctx.fill();
+  roundRect(cx+torsoW*0.42, shoulderY+torsoH*0.70, torsoW*0.30, torsoH*0.22, torsoW*0.12); ctx.fill();
+
+  /* emblemat z inicjałem albo wiekiem */
+  const ey = shoulderY + torsoH*0.40, er = torsoW*0.19;
+  ctx.fillStyle = P.b;
+  if(kind === 'knight'){
+    ctx.beginPath();
+    ctx.moveTo(cx, ey-er*1.15); ctx.lineTo(cx+er, ey-er*0.2);
+    ctx.lineTo(cx, ey+er*1.15); ctx.lineTo(cx-er, ey-er*0.2);
+    ctx.closePath(); ctx.fill();
+  } else { ctx.beginPath(); ctx.arc(cx, ey, er, 0, 7); ctx.fill(); }
+  ctx.fillStyle = P.a;
+  setFont({family:'Anton', weight:400, size:er*1.25});
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(String(emblem).toUpperCase().slice(0,2), cx, ey+2);
+
+  /* pas i nogi */
+  ctx.fillStyle = P.b;
+  ctx.fillRect(cx-torsoW*0.38, shoulderY+torsoH*0.92, torsoW*0.76, torsoH*0.13);
+  ctx.fillStyle = P.a;
+  roundRect(cx-torsoW*0.34, shoulderY+torsoH*1.03, torsoW*0.30, torsoH*0.62, 18); ctx.fill();
+  roundRect(cx+torsoW*0.04, shoulderY+torsoH*1.03, torsoW*0.30, torsoH*0.62, 18); ctx.fill();
+  ctx.fillStyle = P.b;
+  roundRect(cx-torsoW*0.38, shoulderY+torsoH*1.55, torsoW*0.34, torsoH*0.16, 12); ctx.fill();
+  roundRect(cx+torsoW*0.04, shoulderY+torsoH*1.55, torsoW*0.34, torsoH*0.16, 12); ctx.fill();
+
+  /* warstwa wierzchnia: to ona wpuszcza głowę „w” kostium */
+  if(kind === 'cape'){
+    ctx.fillStyle = P.b;                                   // kołnierz
+    ctx.beginPath();
+    ctx.moveTo(cx-torsoW*0.46, shoulderY+hw*0.10);
+    ctx.quadraticCurveTo(cx, shoulderY+hw*0.42, cx+torsoW*0.46, shoulderY+hw*0.10);
+    ctx.quadraticCurveTo(cx, shoulderY+hw*0.14, cx-torsoW*0.46, shoulderY+hw*0.10);
+    ctx.closePath(); ctx.fill();
+  }
+  if(kind === 'astro'){
+    const hx = cx, hy = shoulderY - hw*0.30, R = hw*0.78;
+    ctx.strokeStyle = '#EDEBE6'; ctx.lineWidth = hw*0.13;   // obręcz hełmu
+    ctx.beginPath(); ctx.arc(hx, hy, R, 0, 7); ctx.stroke();
+    const vis = ctx.createLinearGradient(hx-R, hy-R, hx+R, hy+R);
+    vis.addColorStop(0,'rgba(255,255,255,.34)');
+    vis.addColorStop(.45,'rgba(255,255,255,.06)');
+    vis.addColorStop(.5,'rgba(255,255,255,0)');
+    ctx.fillStyle = vis;
+    ctx.beginPath(); ctx.arc(hx, hy, R, 0, 7); ctx.fill();  // szyba nad twarzą
+    ctx.fillStyle = P.b;
+    roundRect(cx-torsoW*0.30, shoulderY+hw*0.30, torsoW*0.60, hw*0.20, 10); ctx.fill();
+  }
+  if(kind === 'knight'){
+    ctx.strokeStyle = '#C9CCD2'; ctx.lineWidth = hw*0.10;   // otwarty hełm
+    ctx.beginPath(); ctx.arc(cx, shoulderY-hw*0.24, hw*0.72, Math.PI*1.08, Math.PI*1.92); ctx.stroke();
+    ctx.fillStyle = '#C9CCD2';
+    roundRect(cx-torsoW*0.44, shoulderY+hw*0.06, torsoW*0.88, hw*0.16, 8); ctx.fill();
+  }
+}
+
+/* ---------- formatka z własną głową ----------
+   Typowa formatka to zdjęcie albo rysunek całej postaci, razem z głową.
+   Trzeba ją znaleźć, zamalować tłem i w to samo miejsce wstawić głowę dziecka —
+   wtedy skala i punkt szyi zgadzają się same, bez ręcznego ustawiania suwaków. */
+function patchOutHead(body, box){
+  const c = document.createElement('canvas');
+  c.width = body.naturalWidth || body.width;
+  c.height = body.naturalHeight || body.height;
+  const x = c.getContext('2d', {willReadFrequently:true});
+  x.drawImage(body, 0, 0);
+  const cx = box.x + box.w/2, cy = box.y + box.h/2;
+  const rx = box.w*1.05, ry = box.h*1.25;
+  /* próbkujemy pierścień wokół głowy osobno u góry i u dołu,
+     żeby łata zachowała gradient tła zamiast być jednolitą plamą */
+  const ring = (a0, a1) => {
+    let r=0,g=0,b=0,n=0;
+    for(let a=a0; a<a1; a+=10){
+      const t = a*Math.PI/180;
+      const sx = Math.round(cx + Math.cos(t)*rx*1.6), sy = Math.round(cy + Math.sin(t)*ry*1.5);
+      if(sx<1||sy<1||sx>=c.width-1||sy>=c.height-1) continue;
+      const d = x.getImageData(sx, sy, 1, 1).data;
+      if(d[3] < 40) continue;
+      r+=d[0]; g+=d[1]; b+=d[2]; n++;
+    }
+    return n ? `rgb(${(r/n)|0},${(g/n)|0},${(b/n)|0})` : null;
+  };
+  const top = ring(180, 360), bot = ring(0, 180);
+  if(!top && !bot) return c;
+  const grad = x.createLinearGradient(0, cy-ry*1.4, 0, cy+ry*1.4);
+  grad.addColorStop(0, top || bot); grad.addColorStop(1, bot || top);
+  x.save();
+  x.filter = `blur(${Math.max(8, box.w*0.14)|0}px)`;      // rozmycie daje miękką krawędź łaty
+  x.fillStyle = grad;
+  x.beginPath(); x.ellipse(cx, cy, rx*1.15, ry*1.2, 0, 0, 7); x.fill();
+  x.restore();
+  return c;
+}
+async function analyseBody(){
+  const st = $('cutStatus');
+  if(!S.bodyRaw) return;
+  try{
+    const det = await loadFaceDetector(m => { st.className='status'; st.textContent = m; });
+    const res = det.detect(S.bodyRaw);
+    const bw = S.bodyRaw.naturalWidth || S.bodyRaw.width;
+    const bh = S.bodyRaw.naturalHeight || S.bodyRaw.height;
+    if(!res.detections || !res.detections.length){
+      S.body = S.bodyRaw; S.bodyFace = null; S.bodyStats = imageStats(S.body);
+      st.className='status';
+      st.textContent = 'Na formatce nie widzę głowy — ustaw punkt szyi suwakami.';
+      paint(); return;
+    }
+    const b = res.detections.map(d=>d.boundingBox)
+      .sort((p,q)=> q.width*q.height - p.width*p.height)[0];
+    const box = {x:b.originX, y:b.originY, w:b.width, h:b.height};
+    S.bodyFace = box;
+    S.body = S.hideBodyHead ? patchOutHead(S.bodyRaw, box) : S.bodyRaw;
+    S.bodyStats = imageStats(S.body);
+    /* ta sama matematyka co przy wycinaniu głowy dziecka: kadr ma 2,1 szerokości
+       twarzy i sięga 1,55 jej wysokości poniżej górnej krawędzi ramki */
+    S.neckX = +((box.x + box.w/2) / bw * 100).toFixed(1);
+    S.neckY = +((box.y + box.h*1.55) / bh * 100).toFixed(1);
+    S.headW = +(box.w*2.1 / bw * 100).toFixed(1);
+    fillControls();
+    gradeCache = {key:'', canvas:null};
+    st.className='status ok';
+    st.textContent = 'Znalazłem głowę na formatce, zamalowałem ją i ustawiłem miejsce na głowę dziecka.';
+    paint(); pushHistory();
+  }catch(err){
+    S.body = S.bodyRaw; S.bodyStats = imageStats(S.body);
+    st.className='status err';
+    st.textContent = 'Formatka wgrana, ale rozpoznanie głowy się nie udało: ' + (err && err.message ? err.message : err);
+    paint();
+  }
+}
+
+/* ---------- montaż fotograficzny ----------
+   Realizm bierze się z trzech rzeczy, a żadną z nich nie jest kształt:
+   zgodne światło, cień kontaktowy w miejscu styku i miękka krawędź.
+   Dlatego formatka musi być zdjęciem — rysunek zawsze zostanie rysunkiem. */
+function imageStats(src){
+  const n = 48;
+  const c = document.createElement('canvas'); c.width = n; c.height = n;
+  const x = c.getContext('2d', {willReadFrequently:true});
+  x.drawImage(src, 0, 0, n, n);
+  const d = x.getImageData(0,0,n,n).data;
+  let r=0,g=0,b=0,cnt=0;
+  for(let i=0;i<d.length;i+=4){
+    if(d[i+3] < 40) continue;                 // pomijamy przezroczyste tło
+    r+=d[i]; g+=d[i+1]; b+=d[i+2]; cnt++;
+  }
+  if(!cnt) return null;
+  r/=cnt; g/=cnt; b/=cnt;
+  const L = 0.2126*r + 0.7152*g + 0.0722*b;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+  return {r, g, b, L, sat: mx ? (mx-mn)/mx : 0};
+}
+let gradeCache = {key:'', canvas:null};
+/* Dopasowuje jasność, nasycenie i temperaturę głowy do formatki. */
+function gradedHead(){
+  if(!S.head) return null;
+  const mix = S.toneMix/100;
+  const key = [S.head.width, S.headStats && S.headStats.L, S.bodyStats && S.bodyStats.L, S.toneMix].join('|');
+  if(gradeCache.key === key) return gradeCache.canvas;
+  const out = document.createElement('canvas');
+  out.width = S.head.width; out.height = S.head.height;
+  const o = out.getContext('2d');
+  const hs = S.headStats, bs = S.bodyStats;
+  if(hs && bs && mix > 0){
+    const bright = 1 + (Math.min(1.7, Math.max(0.6, bs.L/Math.max(1,hs.L))) - 1) * mix;
+    const sat    = 1 + (Math.min(1.5, Math.max(0.7, (bs.sat+0.01)/(hs.sat+0.01))) - 1) * mix;
+    o.filter = `brightness(${bright.toFixed(3)}) saturate(${sat.toFixed(3)})`;
+  }
+  o.drawImage(S.head, 0, 0);
+  o.filter = 'none';
+  /* temperatura: delikatna zasłona w średnim kolorze formatki, tylko na pikselach głowy */
+  if(hs && bs && mix > 0){
+    const norm = 128 / Math.max(1, bs.L);
+    o.globalCompositeOperation = 'source-atop';
+    o.globalAlpha = 0.22 * mix;
+    o.fillStyle = `rgb(${Math.min(255,bs.r*norm)|0},${Math.min(255,bs.g*norm)|0},${Math.min(255,bs.b*norm)|0})`;
+    o.fillRect(0,0,out.width,out.height);
+    o.globalAlpha = 1;
+    o.globalCompositeOperation = 'source-over';
+  }
+  gradeCache = {key, canvas:out};
+  return out;
+}
+/* Cień kontaktowy: to on osadza głowę na ubraniu zamiast kłaść ją obok. */
+function contactShadow(cx, cy, w, strength){
+  if(strength <= 0) return;
+  const r = w*0.62;
+  const g = ctx.createRadialGradient(cx, cy, r*0.15, cx, cy, r);
+  g.addColorStop(0, `rgba(0,0,0,${0.55*strength})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(cx, cy, r, r*0.52, 0, 0, 7); ctx.fill();
+  ctx.restore();
+}
+/* Formatka + głowa + warstwa wierzchnia, wpasowane w zadany prostokąt. */
+function drawPhotoFigure(x, y, w, h){
+  const body = S.body;
+  if(!body){
+    ctx.fillStyle = '#00000014';
+    roundRect(x, y, w, h, 24); ctx.fill();
+    setFont({family:'Oswald', weight:500, size:24, ls:3});
+    ctx.fillStyle = '#8C8880'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('WGRAJ FORMATKĘ POSTACI', x+w/2, y+h/2);
+    clearLS();
+    return;
+  }
+  const r = Math.min(w/body.width, h/body.height);
+  const bw = body.width*r, bh = body.height*r;
+  const bx = x + (w-bw)/2, by = y + (h-bh)/2;
+  ctx.drawImage(body, bx, by, bw, bh);
+
+  const nx = bx + bw*S.neckX/100, ny = by + bh*S.neckY/100;
+  const hw = bw*S.headW/100;
+  const head = gradedHead() || S.head;
+
+  contactShadow(nx, ny + hw*0.10, hw, S.chinSh/100);
+  if(head){
+    E('głowa', nx, ny, ()=>{
+      ctx.save();
+      ctx.translate(nx, ny); ctx.rotate(S.headRot*Math.PI/180);
+      const hh = head.height * (hw/head.width);
+      ctx.drawImage(head, -hw/2, -hh, hw, hh);
+      markRect(-hw/2, -hh, hw, hh);
+      ctx.restore();
+    });
+  }
+  /* Emblemat na piersi: zasłania cudze logo z formatki i personalizuje kostium.
+     Domyślnie ląduje na środku klatki piersiowej, dalej można go przeciągnąć. */
+  if(S.emShape && S.emShape !== 'none'){
+    const P = P_();
+    const ex = bx + bw*0.5, ey = by + bh*(S.neckY/100) + bw*S.emSize/100*1.15;
+    const R = bw*S.emSize/100;
+    const label = (S.emText || S.age || '').trim().toUpperCase().slice(0,3);
+    E('emblemat', ex, ey, ()=>{
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = R*0.35; ctx.shadowOffsetY = R*0.08;
+      ctx.fillStyle = P.a;
+      if(S.emShape === 'circle'){ ctx.beginPath(); ctx.arc(ex, ey, R, 0, 7); ctx.fill(); }
+      else if(S.emShape === 'shield'){
+        ctx.beginPath();
+        ctx.moveTo(ex-R, ey-R*0.85); ctx.lineTo(ex+R, ey-R*0.85);
+        ctx.lineTo(ex+R*0.86, ey+R*0.35);
+        ctx.quadraticCurveTo(ex, ey+R*1.25, ex-R*0.86, ey+R*0.35);
+        ctx.closePath(); ctx.fill();
+      } else {
+        ctx.beginPath();
+        for(let p=0;p<10;p++){
+          const a = -Math.PI/2 + p*Math.PI/5, rad = p%2 ? R*0.46 : R;
+          p ? ctx.lineTo(ex+Math.cos(a)*rad, ey+Math.sin(a)*rad)
+            : ctx.moveTo(ex+Math.cos(a)*rad, ey+Math.sin(a)*rad);
+        }
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = P.b; ctx.lineWidth = Math.max(2, R*0.09);
+      if(S.emShape === 'circle'){ ctx.beginPath(); ctx.arc(ex, ey, R*0.82, 0, 7); ctx.stroke(); }
+      if(label) text(label, {x:ex, y:ey + R*0.34, size:R*0.95, family:'Anton', weight:400, color:P.b, align:'center'});
+      markRect(ex-R*1.1, ey-R*1.1, R*2.2, R*2.2);
+      ctx.restore();
+    });
+  }
+  if(S.bodyOver) ctx.drawImage(S.bodyOver, bx, by, bw, bh);
+}
+
+/* 16. kartka na formatce fotograficznej */
+function archPhoto(sp){
+  const P=P_(), M=62, k=sc(), q=makeQueue();
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, sp.dark ? P.ink : P.b);
+  bg.addColorStop(1, sp.dark ? '#0B0B0D' : P.paper);
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+  const ink = sp.dark ? '#F4F2ED' : P.ink;
+
+  if(sp.vignette){
+    const v = ctx.createRadialGradient(W/2, H*0.45, H*0.2, W/2, H*0.45, H*0.8);
+    v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,.35)');
+    ctx.fillStyle = v; ctx.fillRect(0,0,W,H);
+  }
+  const ms = fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true},W-2*M,sp.msz,44);
+  E('tytuł', W/2, 148, ()=>text(S.masthead,{x:W/2,y:148,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true,color:sp.mc==='a'?P.a:ink,align:'center'}));
+  E('dopisek', W/2, 196, ()=>text(S.sub,{x:W/2,y:196,size:20*k,family:'Oswald',weight:500,ls:6,color:P.a,align:'center',upper:true,maxW:W-2*M}));
+
+  /* cień rzucany pod postacią — dostawia ją do tła */
+  ctx.save();
+  ctx.globalAlpha = .28; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(W/2, H-352, W*0.26, 26, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  drawPhotoFigure(M, 230, W-2*M, H-600);
+
+  const tz=112;
+  thumbA(M, 262, tz, tz, {pad:5}); thumbB(M, 262+tz+14, tz, tz, {pad:5});
+  if(S.age && S.age.trim()){
+    const ax = W-M-84, ay = 330;
+    ctx.fillStyle = P.a;
+    ctx.beginPath(); ctx.arc(ax, ay, 76, 0, 7); ctx.fill();
+    ctx.strokeStyle = P.paper; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(ax, ay, 64, 0, 7); ctx.stroke();
+    text(S.age.trim(), {x:ax, y:ay+22, size:76, family:'Anton', weight:400, color:P.paper, align:'center'});
+    text('lat', {x:ax, y:ay+48, size:17, family:'Oswald', weight:500, ls:4, color:P.paper, align:'center', upper:true});
+  }
+  const ns = fitSize(S.name,{family:sp.nf,weight:sp.nw,upper:true,ls:sp.nls||0},W-2*M,116*k,40);
+  E('nazwisko', W/2, H-286, ()=>text(S.name,{x:W/2,y:H-286,size:ns,family:sp.nf,weight:sp.nw,upper:true,ls:sp.nls||0,color:P.a,align:'center'}));
+  E('podpis', W/2, H-236, ()=>text(S.tagline,{x:W/2,y:H-236,size:24*k,family:'Oswald',weight:300,ls:4,color:ink,align:'center',upper:true,maxW:W-2*M}));
+
+  const cw=(W-2*M-40)/2;
+  for(let c=0;c<2;c++)
+    column(q,{x:M+c*(cw+40), y:H-180, yMax:H-60, maxW:cw, size:16*k, lh:21*k,
+      family:'Inter', weight:500, color:ink, gap:12,
+      marker:(x,yy)=>{ ctx.fillStyle=P.a; ctx.beginPath(); ctx.arc(x-12,yy-6,5,0,7); ctx.fill(); }});
+  reseed(S.masthead+S.name);
+}
+
+/* 15. kartka urodzinowa dla dziecka */
+function archHero(sp){
+  const P=P_(), M=64, k=sc(), q=makeQueue();
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, P.b); bg.addColorStop(1, P.paper);
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  /* promienie od środka — czytelne tło pod postacią */
+  ctx.save();
+  ctx.translate(W/2, 900); ctx.globalAlpha = 0.14;
+  for(let i=0;i<20;i++){
+    ctx.rotate(Math.PI/10);
+    ctx.fillStyle = P.a;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(1500, -110); ctx.lineTo(1500, 110); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  const ms = fitSize(S.masthead,{family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true},W-2*M,sp.msz,44);
+  E('tytuł', W/2, 150, ()=>text(S.masthead,{x:W/2,y:150,size:ms,family:sp.mf,weight:sp.mw,ls:sp.mls,upper:true,color:P.a,align:'center'}));
+  E('dopisek', W/2, 200, ()=>text(S.sub,{x:W/2,y:200,size:22*k,family:'Oswald',weight:500,ls:6,color:P.ink,align:'center',upper:true,maxW:W-2*M}));
+
+  const tz=118;
+  thumbA(M, 258, tz, tz, {pad:5}); thumbB(W-M-tz, 258, tz, tz, {pad:5});
+  drawCostume(W/2, 300, 320, sp.costume || 'cape');
+
+  const ns = fitSize(S.name,{family:sp.nf,weight:sp.nw,upper:true,ls:sp.nls||0},W-2*M,120*k,40);
+  E('nazwisko', W/2, H-330, ()=>text(S.name,{x:W/2,y:H-330,size:ns,family:sp.nf,weight:sp.nw,upper:true,ls:sp.nls||0,color:P.a,align:'center'}));
+  E('podpis', W/2, H-278, ()=>text(S.tagline,{x:W/2,y:H-278,size:26*k,family:'Oswald',weight:300,ls:4,color:P.ink,align:'center',upper:true,maxW:W-2*M}));
+
+  /* życzenia w dwóch kolumnach */
+  const cw = (W-2*M-40)/2;
+  let ly = H-215;
+  for(let c=0;c<2;c++)
+    column(q,{x:M+c*(cw+40), y:ly, yMax:H-70, maxW:cw, size:17*k, lh:22*k,
+      family:'Inter', weight:500, color:P.ink, gap:14,
+      marker:(x,yy)=>{ ctx.fillStyle=P.a; ctx.beginPath(); ctx.arc(x-12,yy-6,5,0,7); ctx.fill(); }});
   reseed(S.masthead+S.name);
 }
 
@@ -1157,6 +1708,8 @@ function archCredits(sp){
   const ms=fitSize(S.masthead,{family:'Oswald',weight:300,ls:8,upper:true},W-2*M,26*k,14);
   E('tytuł', W/2, H-560, ()=>text(S.masthead,{x:W/2,y:H-560,size:ms,family:'Oswald',weight:300,ls:8,color:P.b,align:'center',upper:true}));
 
+  const tz=126;
+  thumbA(M, 220, tz, tz, {pad:5}); thumbB(M+tz+14, 220, tz, tz, {pad:5});
   const ns=fitBlock(S.name,{family:sp.nf,weight:sp.nw,upper:true,ls:sp.mls},W-2*M,150*k,44,2);
   let y = E('nazwisko', W/2, H-420, ()=>text(S.name,{x:W/2,y:H-420,size:ns,lh:ns*0.94,family:sp.nf,weight:sp.nw,upper:true,ls:sp.mls,color:'#fff',align:'center',maxW:W-2*M}));
   E('podpis', W/2, y+34, ()=>text(S.tagline,{x:W/2,y:y+34,size:23*k,family:'Oswald',weight:300,ls:6,color:P.b,align:'center',upper:true,maxW:W-2*M}));
@@ -1174,7 +1727,8 @@ function archCredits(sp){
 
 const ARCH = {fullbleed:archFullbleed, press:archPress, tabloid:archTabloid, minimal:archMinimal,
               split:archSplit, poster:archPoster, frame:archFrame, band:archBandSide, grid:archGrid, zine:archZine,
-              credits:archCredits, moda:archModa, editorial:archEditorial, runway:archRunway};
+              credits:archCredits, moda:archModa, editorial:archEditorial, runway:archRunway,
+              hero:archHero, photo:archPhoto};
 
 /* =========================================================================
    SZABLONY
@@ -1274,7 +1828,20 @@ const TEMPLATES = [
   T('kin-01','Premiera kinowa','Kino','credits',{nf:'Anton',nw:400,mls:-2,pal:0}),
   T('kin-02','Thriller','Kino','credits',{nf:'Archivo Black',nw:400,mls:-1,pal:5}),
   T('kin-03','Komedia','Kino','credits',{nf:'Bebas Neue',nw:400,mls:2,motif:'konfetti',pal:6}),
-  T('kin-04','Dokument','Kino','credits',{nf:'Barlow Condensed',nw:700,mls:4,pal:8})
+  T('kin-04','Dokument','Kino','credits',{nf:'Barlow Condensed',nw:700,mls:4,pal:8}),
+
+  /* --- Kartka urodzinowa: kostiumy rysowane w kodzie, bez cudzych znaków --- */
+  T('kid-01','Superbohater','Kartka','hero',{costume:'cape',mf:'Anton',mw:400,mls:-1,msz:120,nf:'Anton',nw:400,motif:'gwiazdy',pal:0}),
+  T('kid-02','Bohaterka','Kartka','hero',{costume:'cape',mf:'Bebas Neue',mw:400,mls:4,msz:130,nf:'Bebas Neue',nw:400,nls:2,motif:'konfetti',pal:3}),
+  T('kid-03','Kosmonauta','Kartka','hero',{costume:'astro',mf:'Space Grotesk',mw:700,mls:2,msz:104,nf:'Space Grotesk',nw:700,motif:'gwiazdy',pal:1}),
+  T('kid-04','Rycerz','Kartka','hero',{costume:'knight',mf:'Playfair Display',mw:900,mls:-1,msz:118,nf:'Anton',nw:400,motif:'laur',pal:2}),
+  T('kid-05','Odkrywczyni','Kartka','hero',{costume:'astro',mf:'Archivo Black',mw:400,mls:-1,msz:110,nf:'Archivo Black',nw:400,motif:'konfetti',pal:7}),
+
+  /* --- Formatka: montaż na zdjęciu, nie na rysunku --- */
+  T('fot-01','Formatka jasna','Formatka','photo',{mf:'Anton',mw:400,mls:-1,msz:118,nf:'Anton',nw:400,pal:0}),
+  T('fot-02','Formatka nocna','Formatka','photo',{mf:'Bebas Neue',mw:400,mls:4,msz:130,nf:'Bebas Neue',nw:400,nls:2,dark:true,vignette:true,mc:'a',pal:1}),
+  T('fot-03','Formatka studio','Formatka','photo',{mf:'Space Grotesk',mw:700,mls:2,msz:98,nf:'Space Grotesk',nw:700,vignette:true,pal:5}),
+  T('fot-04','Formatka święto','Formatka','photo',{mf:'Playfair Display',mw:900,mls:-1,msz:120,nf:'Anton',nw:400,motif:'konfetti',pal:3})
 ];
 const findTpl = id => TEMPLATES.find(t=>t.id===id) || TEMPLATES[0];
 
@@ -1405,13 +1972,14 @@ function drawMotif(){
 /* ---------- rysowanie ---------- */
 function render(){
   const sp = findTpl(S.tpl);
-  HIT = []; PENDING_FG = null; MAST_DONE = false;
+  HIT = []; PENDING_FG = null; MAST_DONE = false; THUMBS = {any:false}; SLOT_A = null;
   ctx.save();
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H);
   (ARCH[sp.arch]||archFullbleed)(sp);
   drawPendingFg();               // gdyby szablon nie rysował winiety
+  drawStrayThumbs();             // gdyby szablon nie rysował kadrów pobocznych
   drawMotif();
   reseed(sp.id+S.masthead);
   grain();
@@ -1565,6 +2133,64 @@ $('bgMode').onchange = e => { S.bgMode = e.target.value; paint(); pushHistory();
 $('behindTitle').onchange = e => { S.behindTitle = e.target.checked; paint(); pushHistory(); };
 $('feather').oninput = refeather;
 
+/* ---------- głowa do kostiumu ----------
+   Wykrywamy twarz, wycinamy głowę z ramionami i zapisujemy osobno.
+   Kostium rysuje się dwuwarstwowo: plecy i tors pod spodem, kołnierz
+   albo szyba hełmu na wierzchu — dzięki temu głowa siedzi w środku, a nie na. */
+const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite';
+let faceDet = null;
+async function loadFaceDetector(setStatus){
+  if(faceDet) return faceDet;
+  setStatus('Pobieram model rozpoznawania twarzy…');
+  const vision = await import(MP);
+  const files = await vision.FilesetResolver.forVisionTasks(MP + '/wasm');
+  faceDet = await vision.FaceDetector.createFromOptions(files, {
+    baseOptions:{modelAssetPath:FACE_MODEL, delegate:'GPU'}, runningMode:'IMAGE'
+  });
+  return faceDet;
+}
+async function fitHead(){
+  const st = $('cutStatus');
+  const say = m => { st.className='status'; st.textContent = m; };
+  if(!S.imgMain){ st.className='status err'; st.textContent='Najpierw wgraj zdjęcie dziecka.'; return; }
+  $('btnHead').disabled = true;
+  try{
+    if(!S.cut){ say('Najpierw oddzielam postać od tła…'); await cutBackground(); }
+    const det = await loadFaceDetector(say);
+    say('Szukam twarzy…');
+    const res = det.detect(S.imgMain);
+    if(!res.detections || !res.detections.length){
+      st.className='status err';
+      st.textContent='Nie widzę twarzy na tym zdjęciu. Najlepiej działa ujęcie od przodu, twarz dobrze oświetlona.';
+      return;
+    }
+    const b = res.detections
+      .map(d => d.boundingBox)
+      .sort((p,q) => q.width*q.height - p.width*p.height)[0];   // największa twarz
+    const src = S.cut || S.imgMain;
+    const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+    const scaleX = sw / (S.imgMain.naturalWidth || S.imgMain.width);
+    const scaleY = sh / (S.imgMain.naturalHeight || S.imgMain.height);
+    const fx = b.originX*scaleX, fy = b.originY*scaleY, fw = b.width*scaleX, fh = b.height*scaleY;
+    /* zapas: sporo nad czubkiem głowy, mniej po bokach, kawałek szyi pod brodą */
+    const x0 = Math.max(0, fx - fw*0.55), x1 = Math.min(sw, fx + fw*1.55);
+    const y0 = Math.max(0, fy - fh*0.75), y1 = Math.min(sh, fy + fh*1.55);
+    const out = document.createElement('canvas');
+    out.width = Math.round(x1-x0); out.height = Math.round(y1-y0);
+    out.getContext('2d').drawImage(src, x0, y0, x1-x0, y1-y0, 0, 0, out.width, out.height);
+    S.head = out;
+    S.headStats = imageStats(out);
+    gradeCache = {key:'', canvas:null};
+    st.className='status ok';
+    st.textContent = 'Głowa dopasowana. Wybierz szablon z grupy „Kartka”, żeby zobaczyć ją w kostiumie.';
+    paint(); pushHistory();
+  }catch(err){
+    st.className='status err';
+    st.textContent = 'Nie udało się dopasować głowy: ' + (err && err.message ? err.message : err);
+  }finally{ $('btnHead').disabled = false; }
+}
+$('btnHead').onclick = fitHead;
+
 /* =========================================================================
    KREATOR TREŚCI
    ========================================================================= */
@@ -1682,8 +2308,9 @@ $('btnAddLine').onclick = ()=>{
 /* --- nazwy elementów --- */
 function elLabel(id){
   if(id.startsWith('line-')) return 'Hasło '+(+id.slice(5)+1);
+  if(id.startsWith('kadr-')) return 'Kadr '+(+id.slice(5)+1);
   return {'tytuł':'Tytuł magazynu','nazwisko':'Nazwisko bohatera','podpis':'Podpis pod nazwiskiem',
-          'dopisek':'Dopisek','stopka':'Numer, data, cena','kadr-A':'Kadr A','kadr-B':'Kadr B','kod':'Kod kreskowy'}[id] || id;
+          'dopisek':'Dopisek','stopka':'Numer, data, cena','kod':'Kod kreskowy','głowa':'Głowa','emblemat':'Emblemat'}[id] || id;
 }
 function markSelectedLine(){
   [...$('linesList').children].forEach(r => r.classList.toggle('sel', SEL === 'line-'+r.dataset.idx));
@@ -1698,6 +2325,7 @@ function select(id, scroll){
   $('elFont').value = t.fam||'';
   $('elSize').value = Math.round(t.s*100);
   $('elColor').value = t.col || '#ffffff';
+  $('elOpacity').value = t.op === undefined ? 100 : t.op;
   const isImg = id.startsWith('kadr') || id==='kod';
   $('elFont').disabled = isImg; $('elColor').disabled = isImg;
   $('editHint').textContent = isImg
@@ -1713,7 +2341,8 @@ function select(id, scroll){
 $('elFont').onchange = e => { if(SEL){ ovr(SEL).fam = e.target.value; paint(); pushHistory(); } };
 $('elSize').oninput  = e => { if(SEL){ ovr(SEL).s = +e.target.value/100; paint(); pushLater(); } };
 $('elColor').oninput = e => { if(SEL){ ovr(SEL).col = e.target.value; paint(); pushLater(); } };
-$('elReset').onclick = () => { if(SEL){ OVR[SEL] = {dx:0,dy:0,s:1,fam:'',col:''}; select(SEL,false); pushHistory(); } };
+$('elOpacity').oninput = e => { if(SEL){ ovr(SEL).op = +e.target.value; paint(); pushLater(); } };
+$('elReset').onclick = () => { if(SEL){ OVR[SEL] = {dx:0,dy:0,s:1,fam:'',col:'',op:100}; select(SEL,false); pushHistory(); } };
 $('elDone').onclick  = () => select(null);
 $('btnResetAll').onclick = () => { for(const k of Object.keys(OVR)) delete OVR[k]; select(null); pushHistory(); };
 
@@ -1801,6 +2430,8 @@ const GROUP_TAGS = {
   Siatka:  ['rodzina','wakacje','podsumowanie roku','zjazd','klasa','drużyna','grupa'],
   Zin:     ['młodzieżowo','nastolatek','kolaż','muzyka','zabawa','szkoła','studia','koncert'],
   Kino:    ['film','plakat','premiera','kino','dramat','komedia','wieczór filmowy'],
+  Formatka:['zdjęcie','montaż','realistycznie','kostium','dziecko','urodziny','fotomontaż','postać'],
+  Kartka:  ['dziecko','urodziny','superbohater','peleryna','kosmonauta','rycerz','przedszkole','życzenia','chłopiec','dziewczynka'],
   'Wysoka moda': ['moda','vogue','elegancko','portret','sesja','ślub','uroda','luksus','didone','minimalizm','kobieta']
 };
 const EXTRA_TAGS = {
@@ -1893,14 +2524,19 @@ function fillForm(){
 function readForm(){
   S.masthead=$('masthead').value; S.sub=$('sub').value; S.issue=$('issue').value;
   S.date=$('date').value; S.price=$('price').value;
-  S.name=$('name').value; S.tagline=$('tagline').value;
+  S.name=$('name').value; S.tagline=$('tagline').value; S.age=$('age').value;
   S.zoom=$('zoom').value/100; S.ox=+$('ox').value; S.oy=+$('oy').value;
   S.bri=+$('bri').value; S.con=+$('con').value; S.sat=+$('sat').value;
   S.grain=$('grain').checked; S.duo=$('duo').checked; S.fitBg=$('fitBg').value;
+  S.thumbScale=+$('thumbScale').value;
   S.motif=$('motif').value; S.motifStr=+$('motifStr').value;
+  S.hideBodyHead=$('hideBodyHead').checked;
+  S.emShape=$('emShape').value; S.emText=$('emText').value; S.emSize=+$('emSize').value;
+  S.neckX=+$('neckX').value; S.neckY=+$('neckY').value; S.headW=+$('headW').value;
+  S.headRot=+$('headRot').value; S.chinSh=+$('chinSh').value; S.toneMix=+$('toneMix').value;
   S.scale=+$('scale').value; S.scrim=+$('scrim').value;
 }
-['masthead','sub','issue','date','price','name','tagline','zoom','ox','oy','bri','con','sat','grain','duo','fitBg','motif','motifStr','scale','scrim']
+['masthead','sub','issue','date','price','name','tagline','age','zoom','ox','oy','bri','con','sat','grain','duo','fitBg','thumbScale','motif','motifStr','hideBodyHead','emShape','emText','emSize','neckX','neckY','headW','headRot','chinSh','toneMix','scale','scrim']
   .forEach(id=>{ const el=$(id); if(!el) return;
     el.addEventListener('input',()=>{readForm();paint();pushLater();});
     el.addEventListener('change',()=>{readForm();paint();pushLater();}); });
@@ -1940,17 +2576,82 @@ function loadImage(file,slot){
       } else $('cutStatus').textContent='';
     }
     paint();
-    if(slot!=='imgMain') markThumb(slot,url);
   };
   img.src=url;
 }
-const markThumb=(slot,url)=>{ (slot==='imgA'?$('thA'):$('thB')).innerHTML=`<img src="${url}" alt="">`; };
+function loadFigure(file, slot){
+  if(!file || !file.type.startsWith('image/')) return;
+  const img = new Image();
+  img.onload = ()=>{
+    if(slot==='body'){ S.bodyRaw = img; S.body = img; S.bodyStats = imageStats(img); }
+    else S[slot] = img;
+    gradeCache = {key:'', canvas:null};
+    const el = slot==='body' ? $('dropBody') : $('dropOver');
+    el.innerHTML = '<strong>' + (slot==='body' ? 'Formatka wgrana' : 'Warstwa wierzchnia wgrana') +
+                   '</strong>Kliknij, żeby podmienić plik';
+    paint(); pushHistory();
+    if(slot==='body') analyseBody();
+  };
+  img.src = URL.createObjectURL(file);
+}
+$('hideBodyHead').addEventListener('change', ()=>{
+  readForm();
+  if(S.bodyRaw && S.bodyFace){
+    S.body = S.hideBodyHead ? patchOutHead(S.bodyRaw, S.bodyFace) : S.bodyRaw;
+    S.bodyStats = imageStats(S.body);
+    gradeCache = {key:'', canvas:null};
+  }
+  paint();
+});
+$('dropBody').onclick = ()=>$('fileBody').click();
+$('dropOver').onclick = ()=>$('fileOver').click();
+$('fileBody').onchange = e => loadFigure(e.target.files[0], 'body');
+$('fileOver').onchange = e => loadFigure(e.target.files[0], 'bodyOver');
+for(const [el,slot] of [[$('dropBody'),'body'],[$('dropOver'),'bodyOver']]){
+  ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();el.classList.add('hot');}));
+  ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();el.classList.remove('hot');}));
+  el.addEventListener('drop', e=>loadFigure(e.dataTransfer.files[0], slot));
+}
+function buildFrames(){
+  const list = $('frameList');
+  list.innerHTML = '';
+  S.frames.forEach((img, i)=>{
+    const cell = document.createElement('div');
+    cell.className = 'thumb';
+    cell.innerHTML = `<img src="${img.src || img.toDataURL?.() || ''}" alt="">` +
+                     `<span class="num">${i+1}</span>` +
+                     `<button class="del" title="Usuń kadr">×</button>`;
+    cell.querySelector('.del').onclick = e => {
+      e.stopPropagation();
+      S.frames.splice(i,1);
+      if(SEL && SEL.startsWith('kadr-')) select(null);
+      buildFrames(); paint(); pushHistory();
+    };
+    cell.onclick = ()=>{ select('kadr-'+i, false); };
+    list.appendChild(cell);
+  });
+  const add = document.createElement('div');
+  add.className = 'thumb';
+  add.textContent = '+ kadr';
+  add.onclick = ()=>$('fileFrames').click();
+  list.appendChild(add);
+  $('frameCount').textContent = S.frames.length ? S.frames.length + ' kadrów' : 'brak kadrów';
+}
+function addFrameFiles(files){
+  const list = [...files].filter(f => f && f.type.startsWith('image/'));
+  if(!list.length) return;
+  let left = list.length;
+  for(const f of list){
+    const img = new Image();
+    img.onload = ()=>{ S.frames.push(img); if(--left === 0){ buildFrames(); paint(); pushHistory(); } };
+    img.onerror = ()=>{ if(--left === 0){ buildFrames(); paint(); } };
+    img.src = URL.createObjectURL(f);
+  }
+}
+$('btnAddFrame').onclick = ()=>$('fileFrames').click();
+$('fileFrames').onchange = e => { addFrameFiles(e.target.files); e.target.value=''; };
 $('dropMain').onclick=()=>$('fileMain').click();
-$('thA').onclick=()=>$('fileA').click();
-$('thB').onclick=()=>$('fileB').click();
 $('fileMain').onchange=e=>loadImage(e.target.files[0],'imgMain');
-$('fileA').onchange=e=>loadImage(e.target.files[0],'imgA');
-$('fileB').onchange=e=>loadImage(e.target.files[0],'imgB');
 const drop=$('dropMain');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
@@ -2032,10 +2733,12 @@ function snapshot(){
   return JSON.stringify({
     tpl:S.tpl, pal:S.pal, scale:S.scale, scrim:S.scrim,
     masthead:S.masthead, sub:S.sub, issue:S.issue, date:S.date, price:S.price,
-    name:S.name, tagline:S.tagline, lines:S.lines,
+    name:S.name, tagline:S.tagline, age:S.age, lines:S.lines,
     zoom:S.zoom, ox:S.ox, oy:S.oy, bri:S.bri, con:S.con, sat:S.sat,
-    grain:S.grain, duo:S.duo, fitBg:S.fitBg, bgMode:S.bgMode, behindTitle:S.behindTitle,
+    grain:S.grain, duo:S.duo, fitBg:S.fitBg, thumbScale:S.thumbScale, bgMode:S.bgMode, behindTitle:S.behindTitle,
     motif:S.motif, motifStr:S.motifStr,
+    neckX:S.neckX, neckY:S.neckY, headW:S.headW, headRot:S.headRot, chinSh:S.chinSh, toneMix:S.toneMix,
+    hideBodyHead:S.hideBodyHead, emShape:S.emShape, emText:S.emText, emSize:S.emSize,
     ovr:OVR
   });
 }
@@ -2055,9 +2758,14 @@ function fillControls(){
   $('zoom').value = Math.round(S.zoom*100); $('ox').value = S.ox; $('oy').value = S.oy;
   $('bri').value = S.bri; $('con').value = S.con; $('sat').value = S.sat;
   $('grain').checked = S.grain; $('duo').checked = S.duo; $('fitBg').value = S.fitBg;
+  $('thumbScale').value = S.thumbScale;
   $('scale').value = S.scale; $('scrim').value = S.scrim;
   $('bgMode').value = S.bgMode; $('behindTitle').checked = S.behindTitle;
   $('motif').value = S.motif; $('motifStr').value = S.motifStr;
+  $('hideBodyHead').checked=S.hideBodyHead;
+  $('emShape').value=S.emShape; $('emText').value=S.emText; $('emSize').value=S.emSize;
+  $('neckX').value=S.neckX; $('neckY').value=S.neckY; $('headW').value=S.headW;
+  $('headRot').value=S.headRot; $('chinSh').value=S.chinSh; $('toneMix').value=S.toneMix;
 }
 function restoreState(json){
   const d = JSON.parse(json);
@@ -2178,6 +2886,95 @@ $('mkScene').onchange = renderMockup;
 $('mkFrame').onchange = renderMockup;
 $('mkDl').onclick = ()=> $('mockup').toBlob(b => download(b, slug()+'-w-ramce.png'), 'image/png');
 
+/* =========================================================================
+   PROJEKT NA DYSKU
+   Plik .fpm to JSON ze stanem i osadzonymi zdjęciami. Jest samowystarczalny:
+   można go przenieść na inny komputer albo odesłać klientowi do poprawek.
+   ========================================================================= */
+const PROJECT_VERSION = 1;
+function toDataURL(src){
+  if(!src) return null;
+  if(src.toDataURL) return src.toDataURL('image/png');       // canvas
+  const c = document.createElement('canvas');
+  c.width = src.naturalWidth || src.width;
+  c.height = src.naturalHeight || src.height;
+  if(!c.width || !c.height) return null;
+  c.getContext('2d').drawImage(src, 0, 0);
+  try{ return c.toDataURL('image/png'); }catch(e){ return null; }
+}
+const fromDataURL = url => new Promise(res => {
+  if(!url) return res(null);
+  const img = new Image();
+  img.onload = ()=>res(img);
+  img.onerror = ()=>res(null);
+  img.src = url;
+});
+function saveProject(){
+  const st = $('dlStatus');
+  try{
+    const data = {
+      app:'FPM', version:PROJECT_VERSION, saved:new Date().toISOString(),
+      state: JSON.parse(snapshot()),
+      images: {
+        main:   toDataURL(S.imgMain),
+        cut:    toDataURL(S.cut),
+        head:   toDataURL(S.head),
+        body:   toDataURL(S.bodyRaw),
+        over:   toDataURL(S.bodyOver),
+        frames: S.frames.map(toDataURL).filter(Boolean)
+      }
+    };
+    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+    const name = slug() + '.fpm';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    st.className = 'status ok';
+    st.textContent = `Zapisano ${name} (${(blob.size/1048576).toFixed(1)} MB) — plik zawiera zdjęcia.`;
+  }catch(err){
+    st.className = 'status err';
+    st.textContent = 'Nie udało się zapisać projektu: ' + (err && err.message ? err.message : err);
+  }
+}
+async function openProject(file){
+  const st = $('dlStatus');
+  if(!file) return;
+  st.className = 'status'; st.textContent = 'Wczytuję projekt…';
+  try{
+    const data = JSON.parse(await file.text());
+    if(data.app !== 'FPM') throw new Error('To nie jest plik projektu FPM.');
+    if(data.version > PROJECT_VERSION) throw new Error('Plik pochodzi z nowszej wersji aplikacji.');
+    const im = data.images || {};
+    const [main, cut, head, body, over, ...frames] = await Promise.all([
+      fromDataURL(im.main), fromDataURL(im.cut), fromDataURL(im.head),
+      fromDataURL(im.body), fromDataURL(im.over),
+      ...(im.frames || []).map(fromDataURL)
+    ]);
+    S.imgMain = main; S.cut = cut; S.head = head; S.bodyOver = over;
+    S.frames = frames.filter(Boolean);
+    if(body){ S.bodyRaw = body; S.body = body; S.bodyStats = imageStats(body); }
+    if(head) S.headStats = imageStats(head);
+    lastMask = null; gradeCache = {key:'', canvas:null};
+    if(main) $('dropMain').innerHTML = '<strong>Zdjęcie główne wczytane</strong>Kliknij, żeby podmienić plik';
+    if(cut) $('cutOpts').style.display = 'block';
+    restoreState(JSON.stringify(data.state));
+    buildFrames();
+    HIST.stack = [snapshot()]; HIST.i = 0; syncHistory();
+    st.className = 'status ok';
+    st.textContent = 'Projekt wczytany' + (data.saved ? ' (zapisany ' + data.saved.slice(0,10) + ')' : '') + '.';
+  }catch(err){
+    st.className = 'status err';
+    st.textContent = 'Nie udało się wczytać: ' + (err && err.message ? err.message : err);
+  }
+}
+$('btnSave').onclick = saveProject;
+$('btnOpen').onclick = ()=>$('fileProject').click();
+$('fileProject').onchange = e => { openProject(e.target.files[0]); e.target.value=''; };
+window.addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && !e.shiftKey && e.key.toLowerCase()==='o'){ e.preventDefault(); $('btnOpen').click(); }
+  if((e.metaKey||e.ctrlKey) && e.shiftKey && e.key.toLowerCase()==='s'){ e.preventDefault(); saveProject(); }
+});
+
 /* --- start --- */
 function buildFontSelect(){
   const s = $('elFont'), cur = s.value;
@@ -2188,7 +2985,7 @@ function buildFontSelect(){
     ? 'Pominięto kroje bez kompletu polskich znaków: ' + DROPPED.join(', ') + '. Szablony, które ich używały, dostały zamienniki.'
     : 'Wszystkie kroje mają komplet polskich znaków — sprawdzone w tej przeglądarce.';
 }
-fillForm(); buildLines(); buildGallery(); syncPals(); readForm(); buildFontSelect(); selectTpl(S.tpl);
+fillForm(); buildLines(); buildFrames(); buildGallery(); syncPals(); readForm(); buildFontSelect(); selectTpl(S.tpl);
 HIST.stack = [snapshot()]; HIST.i = 0; syncHistory();
 if(document.fonts && document.fonts.ready){
   Promise.all([
