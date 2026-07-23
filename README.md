@@ -204,6 +204,8 @@ Dostępne style:
 
 `circle` i `stamp` są wyjmowane z kolejki haseł jeszcze przed rysowaniem układu i rysowane po nim, przez `drawBadges()`. Dzięki temu działają we **wszystkich szesnastu archetypach**, a nie tylko w tabloidzie, gdzie plakietka była wcześniej zaszyta na sztywno. Kolejne plakietki lądują na kolejnych z pięciu zapasowych pozycji, a że są zwykłymi ruchomymi elementami — przeciąga się je tam, gdzie mają być.
 
+**Domyślnie żadne hasło nie ma stylu.** Plakietka pojawia się sama tylko w pięciu szablonach tabloidowych z flagą `sticker`, bo tam należy do projektu układu — i bierze wtedy ostatnie hasło **po numerze na liście**, a nie po pozycji w kolejce, więc skasowanie innego hasła jej nie rusza. Jawny wybór zawsze ma pierwszeństwo nad tym automatem.
+
 ## Motywy
 
 Motyw to warstwa zdobnicza rysowana już na gotowym układzie, w `drawMotif()`, tuż przed ziarnem druku. Dzięki temu nie musi nic wiedzieć o archetypie i działa z każdym szablonem — 69 układów razy 10 motywów daje znacznie więcej kombinacji niż sama lista szablonów.

@@ -414,8 +414,7 @@ const S = {
     'Rozmowa z sąsiadem, który wie lepiej',
     'Człowiek, który naprawia wszystko taśmą klejącą'
   ],
-  lineFx:['mark','','','','','','','','','circle'],
-  imgMain:null, frames:[],
+  lineFx:[], imgMain:null, frames:[],
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
   cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur', thumbScale:100,
   motif:'none', motifStr:70, age:'7', head:null,
@@ -583,6 +582,15 @@ function makeQueue(){
     .map((t,i)=>({i, t:String(t||'').trim(), fx:fxOf(i)}))
     .filter(o=>o.t);
   BADGES = all.filter(o => o.fx==='circle' || o.fx==='stamp');
+  /* Szablony tabloidowe od zawsze miały plakietkę w projekcie. Jeśli nikt nie
+     wskazał hasła jawnie, bierzemy ostatnie — po numerze na liście, a nie po
+     pozycji w kolejce, więc skasowanie innego hasła jej nie rusza. */
+  const sp = findTpl(S.tpl);
+  if(!BADGES.length && sp && sp.sticker && all.length > 3){
+    const last = all[all.length-1];
+    last.fx = 'circle';
+    BADGES = [last];
+  }
   const arr = all.filter(o => o.fx!=='circle' && o.fx!=='stamp');
   let k = 0;
   return { peek:()=>arr[k], next:()=>arr[k++], left:()=>arr.length-k, take:n=>arr.slice(k, k+=n), rest:()=>arr.slice(k) };
@@ -2340,8 +2348,7 @@ function applyContent(o){
   if(o.tagline) $('tagline').value=o.tagline;
   if(Array.isArray(o.lines)){
     S.lines=o.lines.map(String).slice(0,MAX_LINES);
-    /* pierwsze hasło w zakreśleniu, ostatnie w kółku — od razu widać, że da się to zmienić */
-    S.lineFx = S.lines.map((_,i)=> i===0 ? 'mark' : i===S.lines.length-1 ? 'circle' : '');
+    S.lineFx = S.lines.map(()=>'');      // styl zostaje decyzją użytkownika
     buildLines();
   }
   readForm(); paint(); pushHistory();
