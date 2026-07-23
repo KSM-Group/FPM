@@ -87,7 +87,9 @@
   .card .cap{display:block;padding:6px 7px;font-family:Oswald,sans-serif;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--paper);line-height:1.25}
   .card .grp{display:block;font-size:9px;color:var(--mute);letter-spacing:.09em}
   .lines-list{counter-reset:l}
-  .line-item{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .line-item{display:flex;gap:5px;align-items:center;margin-bottom:6px}
+  .line-item input[type=text]{flex:1;min-width:0}
+  .fxpick{width:auto;flex:none;padding:7px 4px;font-size:11px;max-width:118px}
   .line-item::before{counter-increment:l;content:counter(l,decimal-leading-zero);font-family:Oswald,sans-serif;font-size:11px;color:var(--reg-c);width:20px;flex:none}
   .line-item.sel input{border-color:var(--reg-c)}
   .hint{font-size:12px;color:var(--mute);margin:8px 0 0;line-height:1.45}
@@ -412,6 +414,7 @@ const S = {
     'Rozmowa z sąsiadem, który wie lepiej',
     'Człowiek, który naprawia wszystko taśmą klejącą'
   ],
+  lineFx:['mark','','','','','','','','','circle'],
   imgMain:null, frames:[],
   zoom:1.05, ox:0, oy:0, bri:100, con:104, sat:104, grain:true, duo:false,
   cut:null, bgMode:'blur', behindTitle:true, fitBg:'blur', thumbScale:100,
@@ -564,21 +567,45 @@ function fitBlock(str, o, maxW, start, min, maxLines){
 const rule = (x,y,w,color,h) => { ctx.fillStyle=color; ctx.fillRect(x,y,w,h||2); };
 
 /* ---------- kolejka haseł ---------- */
+/* Styl hasła jest przypisany do samego hasła, nie do jego miejsca w kolejce.
+   Dzięki temu usunięcie hasła nr 6 nie zabiera kółka hasłu nr 8. */
+const LINE_FX = [
+  {id:'',       label:'zwykłe'},
+  {id:'mark',   label:'w zakreśleniu'},
+  {id:'invert', label:'wytłuszczone na pasku'},
+  {id:'circle', label:'w kółku'},
+  {id:'stamp',  label:'w pieczęci'}
+];
+const fxOf = i => S.lineFx[i] || '';
+let BADGES = [];
 function makeQueue(){
-  const arr = S.lines.map((t,i)=>({i, t:String(t||'').trim()})).filter(o=>o.t);
+  const all = S.lines
+    .map((t,i)=>({i, t:String(t||'').trim(), fx:fxOf(i)}))
+    .filter(o=>o.t);
+  BADGES = all.filter(o => o.fx==='circle' || o.fx==='stamp');
+  const arr = all.filter(o => o.fx!=='circle' && o.fx!=='stamp');
   let k = 0;
   return { peek:()=>arr[k], next:()=>arr[k++], left:()=>arr.length-k, take:n=>arr.slice(k, k+=n), rest:()=>arr.slice(k) };
+}
+/* Zakreślenie i odwrotka: tłusty podkład pod hasłem, w kolorze przewodnim
+   albo w bieli. Tekst dostaje wtedy ciemny kolor, żeby był czytelny. */
+function fxOpts(fx, o){
+  const P = P_();
+  if(fx === 'mark')   return {...o, box:P.b, boxPad:14, color:'#111', weight:Math.max(o.weight||500, 700)};
+  if(fx === 'invert') return {...o, box:P.a, boxPad:14, color:'#fff', weight:Math.max(o.weight||500, 700)};
+  return o;
 }
 function column(q, o){
   let y = o.y;
   while(q.peek() && y < o.yMax){
     const it = q.peek();
-    const h = blockH(it.t, o, o.maxW);
+    const oo = fxOpts(it.fx, o);
+    const h = blockH(it.t, oo, oo.maxW);
     if(y + h > o.yMax) break;
     q.next();
-    if(o.marker) o.marker(o.x, y);
+    if(o.marker && !it.fx) o.marker(o.x, y);
     const yy = y;
-    y = E('line-'+it.i, o.x, yy, ()=>text(it.t, {...o, y:yy})) + (o.gap||28);
+    y = E('line-'+it.i, o.x, yy, ()=>text(it.t, {...oo, y:yy})) + (o.gap||28);
   }
   return y;
 }
@@ -640,6 +667,47 @@ let PENDING_FG = null, MAST_DONE = false, LAST_MAIN = null;
 let THUMBS = {any:false};
 /* Gdyby jakiś układ zapomniał o kadrach pobocznych, trafiają w lewy dolny róg.
    Lepiej niepozycjonowany kadr niż wgrane zdjęcie, które znika bez słowa. */
+/* Kółka i pieczęcie rysujemy po całym układzie — dzięki temu ten sam styl
+   działa we wszystkich szesnastu archetypach, a nie tylko w tabloidzie. */
+const BADGE_SPOTS = [
+  [W-230, 470, -0.16], [255, H-560, 0.12], [W-250, H-640, -0.10],
+  [250, 430, 0.14],    [W/2, H-470, -0.06]
+];
+function drawBadges(){
+  const P = P_();
+  BADGES.forEach((it, n)=>{
+    const spot = BADGE_SPOTS[n % BADGE_SPOTS.length];
+    const [bxc, byc, rot] = spot;
+    const R = it.fx === 'stamp' ? 132 : 146;
+    E('line-'+it.i, bxc, byc, ()=>{
+      ctx.save();
+      ctx.translate(bxc, byc); ctx.rotate(rot);
+      markRect(-R-6, -R-6, (R+6)*2, (R+6)*2);
+      if(it.fx === 'stamp'){
+        ctx.strokeStyle = P.a; ctx.lineWidth = 9;
+        ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.stroke();
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0,0,R-16,0,7); ctx.stroke();
+        text(it.t, {x:0, y:-4, size:30, lh:34, family:'Anton', weight:400, color:P.a, align:'center', upper:true, maxW:R*1.7});
+      } else {
+        ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=26; ctx.shadowOffsetY=8;
+        ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.fillStyle=P.b; ctx.fill();
+        ctx.shadowColor='transparent';
+        ctx.strokeStyle='#111'; ctx.lineWidth=5;
+        ctx.beginPath(); ctx.arc(0,0,R,0,7); ctx.stroke();
+        const num = (it.t.match(/^\D*(\d+)/)||[])[1];
+        const tail = num ? it.t.replace(/\d+/,'').trim() : '';
+        if(num && tail){
+          text(num,  {x:0, y:18,  size:104, family:'Anton', weight:400, color:'#111', align:'center'});
+          text(tail, {x:0, y:70,  size:22,  lh:25, family:'Oswald', weight:700, color:'#111', align:'center', upper:true, ls:2, maxW:R*1.75});
+        } else {
+          text(it.t, {x:0, y:-10, size:30, lh:34, family:'Anton', weight:400, color:'#111', align:'center', upper:true, maxW:R*1.65});
+        }
+      }
+      ctx.restore();
+    });
+  });
+}
 function drawStrayThumbs(){
   if(THUMBS.any || !S.frames.length) return;
   const sz = 128, y = H - sz - 76;
@@ -884,24 +952,12 @@ function archTabloid(sp){
   let y=bh+90;
   for(let i=0;i<3 && q.peek();i++){
     const it=q.next(), yy=y, first=i===0;
-    y = E('line-'+it.i, M+12, yy, ()=>text(it.t,{x:M+12,y:yy,size:40*k,lh:52*k,family:sp.lf,weight:sp.lw,color:'#111',box:first?P.b:'#fff',boxPad:12,maxW:520*k,upper:true}))+22;
+    const bg = it.fx==='invert' ? P.a : it.fx==='mark' ? P.b : (first?P.b:'#fff');
+    const fg = it.fx==='invert' ? '#fff' : '#111';
+    y = E('line-'+it.i, M+12, yy, ()=>text(it.t,{x:M+12,y:yy,size:40*k,lh:52*k,family:sp.lf,weight:sp.lw,color:fg,box:bg,boxPad:14,maxW:520*k,upper:true}))+22;
   }
   column(q,{x:W-M,y:Math.max(y+30,660),yMax:H-620,maxW:400*k,size:28*k,lh:35*k,family:'Oswald',weight:700,color:'#fff',align:'right',upper:true,gap:24});
 
-  if(sp.sticker && q.left()){
-    const rest=q.rest(), it=rest[rest.length-1];
-    const num=(it.t.match(/\d+/)||[''])[0], tail=it.t.replace(/\d+/,'').trim();
-    E('line-'+it.i, W-205, bh+270, ()=>{
-      ctx.save(); ctx.translate(W-205,bh+270); ctx.rotate(-0.16);
-      markRect(-150,-150,300,300);
-      ctx.beginPath(); ctx.arc(0,0,146,0,7); ctx.fillStyle=P.b; ctx.fill();
-      ctx.strokeStyle='#111'; ctx.lineWidth=5; ctx.stroke();
-      if(num){ text(num,{x:0,y:22,size:112,family:'Anton',weight:400,color:'#111',align:'center'});
-               text(tail,{x:0,y:72,size:22,family:'Oswald',weight:700,color:'#111',align:'center',upper:true,ls:2,maxW:240}); }
-      else text(it.t,{x:0,y:-6,size:28,lh:32,family:'Anton',weight:400,color:'#111',align:'center',upper:true,maxW:236});
-      ctx.restore();
-    });
-  }
   const sz=166;
   thumbA(M,H-610,sz,sz,{pad:6}); thumbB(M+sz+24,H-610,sz,sz,{pad:6});
 
@@ -1169,6 +1225,16 @@ function fashionLines(q, o){
   let y = o.y;
   while(q.peek() && y < o.yMax){
     const it = q.peek();
+    if(it.fx === 'mark' || it.fx === 'invert'){
+      const oo = fxOpts(it.fx, {size:o.size, lh:o.size*1.24, family:o.sans, weight:700,
+                                ls:o.ls, upper:true, color:o.color, align:o.align, maxW:o.maxW});
+      const need = blockH(it.t, oo, o.maxW);
+      if(y + need > o.yMax) break;
+      q.next();
+      const yy = y;
+      y = E('line-'+it.i, o.x, yy, ()=>text(it.t, {...oo, x:o.x, y:yy})) + (o.gap || o.size*1.5);
+      continue;
+    }
     const [lead, rest] = splitLead(it.t);
     const lo = {size:o.size, family:o.sans, weight:700, ls:o.ls, upper:true, color:o.color, align:o.align, maxW:o.maxW};
     const ro = {size:o.size*0.94, lh:o.size*1.22, family:o.sans, weight:300, ls:o.ls, upper:true, color:o.color, align:o.align, maxW:o.maxW};
@@ -1980,6 +2046,7 @@ function render(){
   (ARCH[sp.arch]||archFullbleed)(sp);
   drawPendingFg();               // gdyby szablon nie rysował winiety
   drawStrayThumbs();             // gdyby szablon nie rysował kadrów pobocznych
+  drawBadges();                  // kółka i pieczęcie — niezależnie od układu
   drawMotif();
   reseed(sp.id+S.masthead);
   grain();
@@ -2271,7 +2338,12 @@ function applyContent(o){
   if(o.sub) $('sub').value=o.sub;
   if(o.name) $('name').value=o.name;
   if(o.tagline) $('tagline').value=o.tagline;
-  if(Array.isArray(o.lines)){ S.lines=o.lines.map(String).slice(0,MAX_LINES); buildLines(); }
+  if(Array.isArray(o.lines)){
+    S.lines=o.lines.map(String).slice(0,MAX_LINES);
+    /* pierwsze hasło w zakreśleniu, ostatnie w kółku — od razu widać, że da się to zmienić */
+    S.lineFx = S.lines.map((_,i)=> i===0 ? 'mark' : i===S.lines.length-1 ? 'circle' : '');
+    buildLines();
+  }
   readForm(); paint(); pushHistory();
 }
 
@@ -2290,18 +2362,30 @@ function buildLines(){
     inp.type='text'; inp.maxLength=110; inp.value=v;
     inp.addEventListener('input',()=>{ S.lines[i]=inp.value; paint(); pushLater(); });
     inp.addEventListener('focus',()=>{ select('line-'+i, false); });
+    /* styl jedzie razem z hasłem: przy przestawianiu i usuwaniu ruszamy oba naraz */
+    const fx=document.createElement('select');
+    fx.className='fxpick'; fx.title='Wygląd hasła na okładce';
+    fx.innerHTML = LINE_FX.map(f=>`<option value="${f.id}">${f.label}</option>`).join('');
+    fx.value = fxOf(i);
+    fx.onchange = ()=>{ S.lineFx[i]=fx.value; paint(); pushHistory(); };
     const up=document.createElement('button'); up.className='mini ghost'; up.textContent='↑'; up.title='Wyżej';
-    up.onclick=()=>{ if(i>0){ [S.lines[i-1],S.lines[i]]=[S.lines[i],S.lines[i-1]]; buildLines(); paint(); pushHistory(); } };
+    up.onclick=()=>{ if(i>0){
+      [S.lines[i-1],S.lines[i]]=[S.lines[i],S.lines[i-1]];
+      [S.lineFx[i-1],S.lineFx[i]]=[fxOf(i),fxOf(i-1)];
+      buildLines(); paint(); pushHistory(); } };
     const del=document.createElement('button'); del.className='mini ghost'; del.textContent='×'; del.title='Usuń hasło';
-    del.onclick=()=>{ S.lines.splice(i,1); if(SEL && SEL.startsWith('line-')) select(null); buildLines(); paint(); pushHistory(); };
-    row.append(inp,up,del); list.appendChild(row);
+    del.onclick=()=>{
+      S.lines.splice(i,1); S.lineFx.splice(i,1);
+      if(SEL && SEL.startsWith('line-')) select(null);
+      buildLines(); paint(); pushHistory(); };
+    row.append(inp,fx,up,del); list.appendChild(row);
   });
   $('lineCount').textContent = `${S.lines.length} / ${MAX_LINES}`;
   $('btnAddLine').disabled = S.lines.length >= MAX_LINES;
 }
 $('btnAddLine').onclick = ()=>{
   if(S.lines.length >= MAX_LINES) return;
-  S.lines.push(''); buildLines(); paint(); pushHistory();
+  S.lines.push(''); S.lineFx.push(''); buildLines(); paint(); pushHistory();
   $('linesList').lastChild.querySelector('input').focus();
 };
 
@@ -2733,7 +2817,7 @@ function snapshot(){
   return JSON.stringify({
     tpl:S.tpl, pal:S.pal, scale:S.scale, scrim:S.scrim,
     masthead:S.masthead, sub:S.sub, issue:S.issue, date:S.date, price:S.price,
-    name:S.name, tagline:S.tagline, age:S.age, lines:S.lines,
+    name:S.name, tagline:S.tagline, age:S.age, lines:S.lines, lineFx:S.lineFx,
     zoom:S.zoom, ox:S.ox, oy:S.oy, bri:S.bri, con:S.con, sat:S.sat,
     grain:S.grain, duo:S.duo, fitBg:S.fitBg, thumbScale:S.thumbScale, bgMode:S.bgMode, behindTitle:S.behindTitle,
     motif:S.motif, motifStr:S.motifStr,
@@ -2773,6 +2857,7 @@ function restoreState(json){
   const ovrCopy = d.ovr; delete d.ovr;
   Object.assign(S, d);
   S.lines = d.lines.slice();
+  S.lineFx = (d.lineFx || []).slice();
   for(const k of Object.keys(OVR)) delete OVR[k];
   for(const [k,v] of Object.entries(ovrCopy)) OVR[k] = {...v};
   fillForm(); fillControls(); buildLines(); syncPals();

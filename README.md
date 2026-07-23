@@ -7,6 +7,7 @@ Jedna strona HTML, która robi z Twojego zdjęcia pierwszą stronę magazynu: wi
 - **Zdjęcie główne + dwa kadry poboczne** — przeciągnij plik albo kliknij pole.
 - **Kadrowanie i obróbka lokalnie**: skala od 30% do 320% (a więc i pomniejszanie, nie tylko przybliżanie), przesunięcie w obu osiach, jasność, kontrast, nasycenie, ziarno druku. Przycisk „Zmieść całe zdjęcie" liczy potrzebną skalę z proporcji zdjęcia i kadru w danym szablonie. Margines, który zostaje wokół pomniejszonego zdjęcia, wypełnia rozmyte powiększenie tego samego kadru albo jednolity kolor.
 - **Pole na tytuł magazynu** plus dopisek, numer, data i cena.
+- **Styl przypisany do hasła** — przy każdym haśle wybierasz jego wygląd na okładce: zwykłe, w zakreśleniu, wytłuszczone na kolorowym pasku, w kółku albo w pieczęci. Styl jedzie razem z hasłem, więc usunięcie jednego nie zabiera kółka drugiemu.
 - **Do 10 haseł** — dodajesz, usuwasz, przestawiasz i edytujesz. Licznik pilnuje limitu, a szablon bierze tyle, ile mieści się bez ścisku, zaczynając od pierwszego.
 - **Edycja wprost na okładce** — kliknij dowolny napis albo kadr, żeby go zaznaczyć. Przeciąganie przesuwa, kwadrat w rogu skaluje, kółko myszy też skaluje, strzałki przesuwają co 2 px (z Shiftem co 10). Dla tekstu dochodzi wybór kroju i koloru. Kliknięcie w puste miejsce odznacza i przechodzi w tryb przesuwania zdjęcia głównego.
 - **Wycinanie tła osoby (AI, lokalnie)** — jedno kliknięcie oddziela postać od tła. Model MediaPipe Selfie Segmenter działa w przeglądarce przez WASM/GPU, zdjęcie nigdzie nie jest wysyłane; z sieci pobiera się tylko sam model (~2 MB, raz). Tło można zostawić rozmyte, zamienić na kolor przewodni, na jasne albo usunąć zupełnie. Suwak wygładza krawędzie. PNG z gotową przezroczystością jest rozpoznawany od razu, bez modelu i bez internetu.
@@ -186,6 +187,22 @@ Kostiumy ze stocku i z generatorów obrazu bardzo często noszą na piersi znak 
 Ta trzecia warstwa jest sednem efektu. Bez niej głowa leży *na* kostiumie jak naklejka; z nią siedzi *w* nim.
 
 Jeśli twarz nie zostanie wykryta, kostium dostaje okrągły kadr ze zdjęcia, a przy braku zdjęcia — czytelne pole „TU TWARZ".
+
+## Style haseł
+
+Wcześniej plakietka w tabloidzie brała po prostu ostatnie hasło z kolejki. Skutek: usunięcie hasła nr 6 zmieniało treść kółka albo kasowało je zupełnie, bo numeracja się przesuwała. Przypisanie po pozycji zastąpiło jawne pole `S.lineFx[i]`, powiązane z konkretnym hasłem i przenoszone razem z nim przy usuwaniu i przestawianiu.
+
+Dostępne style:
+
+| Styl | Co robi |
+|---|---|
+| *(puste)* | hasło jak przewiduje układ |
+| `mark` | tłusty podkład w kolorze dopełniającym, ciemny tekst — zakreślacz |
+| `invert` | podkład w kolorze przewodnim, biały tekst |
+| `circle` | żółta plakietka z obwódką i cieniem; liczba na początku hasła idzie wielkim krojem, reszta pod nią |
+| `stamp` | dwie okręgi obrysu w kolorze przewodnim, tekst wersalikami |
+
+`circle` i `stamp` są wyjmowane z kolejki haseł jeszcze przed rysowaniem układu i rysowane po nim, przez `drawBadges()`. Dzięki temu działają we **wszystkich szesnastu archetypach**, a nie tylko w tabloidzie, gdzie plakietka była wcześniej zaszyta na sztywno. Kolejne plakietki lądują na kolejnych z pięciu zapasowych pozycji, a że są zwykłymi ruchomymi elementami — przeciąga się je tam, gdzie mają być.
 
 ## Motywy
 
